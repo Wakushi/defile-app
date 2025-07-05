@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/form"
 import { useCrossChainTransfer } from "@/hooks/use-cross-chain-transfer"
 import { SupportedChainId } from "@/lib/chains"
-import { Wallet, RefreshCw } from "lucide-react"
+import BalanceDisplay from "@/components/balance-display"
 
 const tradeFormSchema = z.object({
   asset: z.string().min(1, "Asset is required"),
@@ -109,6 +109,14 @@ export default function TradingPage() {
         <p className="text-gray-600 dark:text-gray-400">
           Open leveraged positions on Hyperliquid from any chain
         </p>
+      </div>
+
+      <div className="mb-6">
+        <BalanceDisplay
+          balance={balance}
+          sourceChain={sourceChain}
+          onRefresh={fetchBalance}
+        />
       </div>
 
       <FormProvider {...formMethods}>
