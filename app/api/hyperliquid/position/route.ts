@@ -32,9 +32,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { asset, size, side, price } = body
+    const { asset, sizeUsd, side, price } = body
 
-    if (!asset || !size || !side) {
+    if (!asset || !sizeUsd || !side) {
       return NextResponse.json(
         { error: "Asset, size, and side are required" },
         { status: 400 }
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (typeof size !== "number" || size <= 0) {
+    if (typeof sizeUsd !== "number" || sizeUsd <= 0) {
       return NextResponse.json(
         { error: "Size must be a positive number" },
         { status: 400 }
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     const result = await hyperliquidService.openMarketPosition({
       asset,
-      size,
+      sizeUsd,
       side,
       price,
     })
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       result,
-      message: `Successfully opened ${side} position for ${asset} with size ${size}`,
+      message: `Successfully opened ${side} position for ${asset} with size ${sizeUsd}`,
     })
   } catch (error) {
     console.error("Error opening market position:", error)

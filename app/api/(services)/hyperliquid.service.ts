@@ -1,5 +1,6 @@
 import { Hyperliquid, UserFills, UserOpenOrders } from "hyperliquid"
 import { Address } from "viem"
+import { PerpMetadata } from "@/types/hyperliquid.type"
 
 // Notation
 // -> https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/notation
@@ -59,17 +60,19 @@ export class HyperliquidService {
 
   async openMarketPosition({
     asset,
-    size,
+    sizeUsd,
     side,
     price,
   }: {
     asset: string
-    size: number
+    sizeUsd: number
     side: "buy" | "sell"
     price?: number
   }) {
-    const marketPrice = await this.getAssetPrice(asset) // 107733.5
+    const marketPrice = await this.getAssetPrice(asset)
     const limit_px = (price ?? marketPrice).toFixed()
+    const perpMetadata = await this.getAssetMetadata(asset)
+    const size = (+sizeUsd / +marketPrice).toFixed(perpMetadata?.szDecimals)
 
     const response: OpenMarketPositionResponse =
       await this.hyperliquid.exchange.placeOrder({
@@ -81,11 +84,13 @@ export class HyperliquidService {
         reduce_only: false,
       })
 
-    if (response.status !== "ok") {
-      throw new Error(response.response.data.statuses[0].error)
+    const status = response.response.data.statuses[0]
+
+    if (response.status !== "ok" || status.error) {
+      throw new Error(status.error)
     }
 
-    return "ok"
+    return status
   }
 
   async updateLeverage({
@@ -145,5 +150,16 @@ export class HyperliquidService {
     }
 
     return assetIndex.toString()
+  }
+
+  async getAssetMetadata(asset: string): Promise<PerpMetadata | undefined> {
+    const perpMetadata = await this.hyperliquid.info.perpetuals.getMeta()
+    const assetMetadata = perpMetadata.universe.find((p) => p.name === asset)
+
+    if (!assetMetadata) {
+      throw new Error("Asset not found")
+    }
+
+    return assetMetadata
   }
 }

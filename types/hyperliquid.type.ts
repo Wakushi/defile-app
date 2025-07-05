@@ -16,3 +16,9 @@ export interface HyperliquidMarginInfo {
   assetPositions: any[]
   time: number
 }
+
+export interface PerpMetadata {
+  szDecimals: number
+  name: string
+  maxLeverage: number
+}

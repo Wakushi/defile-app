@@ -53,7 +53,6 @@ export function useBalances(sourceChain: SupportedChainId): UseBalancesReturn {
       })
 
       const data: HyperliquidMarginInfo = await response.json()
-      console.log("Hyperliquid balance:", data)
       setHyperliquidBalance(data.marginSummary.totalRawUsd)
     } catch (error) {
       console.error("Failed to get Hyperliquid balance:", error)

@@ -27,13 +27,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { useBalances } from "@/hooks/use-balances"
 import { SupportedChainId } from "@/lib/chains"
-import BalanceDisplay from "@/components/balance-display"
 
 const tradeFormSchema = z.object({
   asset: z.string().min(1, "Asset is required"),
-  size: z.number().positive("Size must be positive"),
+  sizeUsd: z.number().positive("Size must be positive"),
   side: z.enum(["buy", "sell"]),
   price: z.number().optional(),
 })
@@ -55,21 +53,12 @@ export default function TradingPage() {
   )
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
 
-  const {
-    balance,
-    hyperliquidBalance,
-    isLoadingBalance,
-    isLoadingHyperliquid,
-    fetchBalance,
-    fetchHyperliquidBalance,
-  } = useBalances(sourceChain)
-
   const formMethods = useForm<TradeFormData>({
     resolver: zodResolver(tradeFormSchema),
     defaultValues: {
       asset: tradingPairs[0].value,
       side: "buy",
-      size: 0,
+      sizeUsd: 0,
       price: undefined,
     },
     mode: "onChange",
@@ -81,11 +70,27 @@ export default function TradingPage() {
 
   const onSubmit = async (data: TradeFormData) => {
     setIsSubmitting(true)
-    console.log("Trade form data:", data)
-    // TODO: Implement trade submission logic
-    setTimeout(() => {
+
+    try {
+      const response = await fetch("/api/hyperliquid/position", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to open position")
+      }
+
+      const result = await response.json()
+      console.log("Position opened:", result)
+    } catch (error) {
+      console.error("Error opening position:", error)
+    } finally {
       setIsSubmitting(false)
-    }, 1000)
+    }
   }
 
   return (
@@ -97,16 +102,6 @@ export default function TradingPage() {
         <p className="text-gray-600 dark:text-gray-400">
           Open leveraged positions on Hyperliquid from any chain
         </p>
-      </div>
-
-      <div className="mb-6">
-        <BalanceDisplay
-          balance={balance}
-          hyperliquidBalance={hyperliquidBalance}
-          sourceChain={sourceChain}
-          onRefresh={fetchBalance}
-          onRefreshHyperliquid={fetchHyperliquidBalance}
-        />
       </div>
 
       <FormProvider {...formMethods}>
@@ -184,7 +179,7 @@ export default function TradingPage() {
               {/* Size Input */}
               <FormField
                 control={control}
-                name="size"
+                name="sizeUsd"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Size (USD)</FormLabel>
@@ -278,8 +273,8 @@ export default function TradingPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Size:</span>
                   <span className="font-medium">
-                    {watchedValues.size
-                      ? `$${watchedValues.size.toLocaleString()}`
+                    {watchedValues.sizeUsd
+                      ? `$${watchedValues.sizeUsd.toLocaleString()}`
                       : "Not set"}
                   </span>
                 </div>
