@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, FormProvider } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import {
@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -21,7 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
 
+// Form validation schema
 const tradeFormSchema = z.object({
   asset: z.string().min(1, "Asset is required"),
   size: z.number().positive("Size must be positive"),
@@ -43,20 +50,20 @@ const tradingPairs = [
 export default function TradingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<TradeFormData>({
+  const formMethods = useForm<TradeFormData>({
     resolver: zodResolver(tradeFormSchema),
     defaultValues: {
+      asset: tradingPairs[0].value,
       side: "buy",
+      size: 0,
+      price: undefined,
     },
+    mode: "onChange",
   })
 
-  const watchedSide = watch("side")
+  const { control, watch, handleSubmit } = formMethods
+
+  const watchedValues = watch()
 
   const onSubmit = async (data: TradeFormData) => {
     setIsSubmitting(true)
@@ -74,145 +81,197 @@ export default function TradingPage() {
           Perpetual Trading
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Open leveraged positions on Hyperliquid from Base chain
+          Open leveraged positions on Hyperliquid from any chain
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>New Position</CardTitle>
-          <CardDescription>
-            Select your trading pair and enter position details
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Asset Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="asset">Trading Pair</Label>
-              <Select
-                onValueChange={(value) => setValue("asset", value)}
-                defaultValue={tradingPairs[0].value}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a trading pair" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tradingPairs.map((pair) => (
-                    <SelectItem key={pair.value} value={pair.value}>
-                      {pair.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.asset && (
-                <p className="text-sm text-red-600">{errors.asset.message}</p>
-              )}
-            </div>
-
-            {/* Side Selection */}
-            <div className="space-y-2">
-              <Label>Side</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={watchedSide === "buy" ? "default" : "outline"}
-                  onClick={() => setValue("side", "buy")}
-                  className="flex-1"
-                >
-                  Buy / Long
-                </Button>
-                <Button
-                  type="button"
-                  variant={watchedSide === "sell" ? "default" : "outline"}
-                  onClick={() => setValue("side", "sell")}
-                  className="flex-1"
-                >
-                  Sell / Short
-                </Button>
-              </div>
-            </div>
-
-            {/* Size Input */}
-            <div className="space-y-2">
-              <Label htmlFor="size">Size (USD)</Label>
-              <Input
-                id="size"
-                type="number"
-                step="0.01"
-                placeholder="1000.00"
-                {...register("size", { valueAsNumber: true })}
+      <FormProvider {...formMethods}>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>New Position</CardTitle>
+              <CardDescription>
+                Select your trading pair and enter position details
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Asset Selection */}
+              <FormField
+                control={control}
+                name="asset"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Trading Pair</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a trading pair" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {tradingPairs.map((pair) => (
+                          <SelectItem key={pair.value} value={pair.value}>
+                            {pair.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.size && (
-                <p className="text-sm text-red-600">{errors.size.message}</p>
-              )}
-            </div>
 
-            {/* Price Input (Optional) */}
-            <div className="space-y-2">
-              <Label htmlFor="price">Price (Optional)</Label>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                placeholder="Leave empty for market order"
-                {...register("price", { valueAsNumber: true })}
+              {/* Side Selection */}
+              <FormField
+                control={control}
+                name="side"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Side</FormLabel>
+                    <FormControl>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant={
+                            field.value === "buy" ? "default" : "outline"
+                          }
+                          onClick={() => field.onChange("buy")}
+                          className="flex-1"
+                        >
+                          Buy / Long
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={
+                            field.value === "sell" ? "default" : "outline"
+                          }
+                          onClick={() => field.onChange("sell")}
+                          className="flex-1"
+                        >
+                          Sell / Short
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              <p className="text-sm text-gray-500">
-                Leave empty to place a market order
-              </p>
-            </div>
 
-            {/* Submit Button */}
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Submitting..." : "Open Position"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              {/* Size Input */}
+              <FormField
+                control={control}
+                name="size"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Size (USD)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="1000.00"
+                        value={field.value || ""}
+                        onChange={(e) =>
+                          field.onChange(parseFloat(e.target.value) || 0)
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-      {/* Position Summary */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Position Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Asset:</span>
-              <span className="font-medium">
-                {watch("asset") || "Not selected"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Side:</span>
-              <span
-                className={`font-medium ${
-                  watchedSide === "buy" ? "text-green-600" : "text-red-600"
-                }`}
+              {/* Price Input (Optional) */}
+              <FormField
+                control={control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Price (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Leave empty for market order"
+                        value={field.value || ""}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          field.onChange(value ? parseFloat(value) : undefined)
+                        }}
+                      />
+                    </FormControl>
+                    <p className="text-sm text-gray-500">
+                      Leave empty to place a market order
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isSubmitting}
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleSubmit(onSubmit)(e)
+                }}
               >
-                {watchedSide === "buy" ? "Long" : "Short"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Size:</span>
-              <span className="font-medium">
-                {watch("size")
-                  ? `$${watch("size")?.toLocaleString()}`
-                  : "Not set"}
-              </span>
-            </div>
-            {watch("price") && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Price:</span>
-                <span className="font-medium">
-                  ${watch("price")?.toLocaleString()}
-                </span>
+                {isSubmitting ? "Submitting..." : "Open Position"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Position Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Position Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Asset:</span>
+                  <span className="font-medium">
+                    {watchedValues.asset
+                      ? tradingPairs.find(
+                          (p) => p.value === watchedValues.asset
+                        )?.label || watchedValues.asset
+                      : "Not selected"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Side:</span>
+                  <span
+                    className={`font-medium ${
+                      watchedValues.side === "buy"
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {watchedValues.side === "buy" ? "Long" : "Short"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Size:</span>
+                  <span className="font-medium">
+                    {watchedValues.size
+                      ? `$${watchedValues.size.toLocaleString()}`
+                      : "Not set"}
+                  </span>
+                </div>
+                {watchedValues.price && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Price:</span>
+                    <span className="font-medium">
+                      ${watchedValues.price.toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </form>
+      </FormProvider>
     </div>
   )
 }
