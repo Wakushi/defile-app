@@ -2,9 +2,7 @@ import { useEffect, useState } from "react"
 import { useCrossChainTransfer } from "@/hooks/use-cross-chain-transfer"
 import { SupportedChainId } from "@/lib/chains"
 import { HyperliquidMarginInfo } from "@/types/hyperliquid.type"
-
-const HYPERLIQUID_TESTNET_API_URL = "https://api.hyperliquid-testnet.xyz/info"
-const USER = "0x4206730E2C2281F4dF24c0e588F6C8f5dBAd03BA"
+import { HYPERLIQUID_TESTNET_API_URL, USER } from "@/lib/constants"
 
 interface UseBalancesReturn {
   balance: string
