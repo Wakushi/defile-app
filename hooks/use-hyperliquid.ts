@@ -6,11 +6,16 @@ import { AssetPosition, HyperliquidMarginInfo } from "@/types/hyperliquid.type"
 
 export function useHyperliquid(user: Address) {
   const [orders, setOrders] = useState<UserOpenOrders[]>([])
-  const [fills, setFills] = useState<UserFills>([])
-  const [openPositions, setOpenPositions] = useState<AssetPosition[]>([])
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
+
+  const [fills, setFills] = useState<UserFills>([])
   const [isLoadingFills, setIsLoadingFills] = useState(false)
+
+  const [openPositions, setOpenPositions] = useState<AssetPosition[]>([])
   const [isLoadingOpenPositions, setIsLoadingOpenPositions] = useState(false)
+
+  const [perpsAssets, setPerpsAssets] = useState<string[]>([])
+  const [isLoadingPerpsAssets, setIsLoadingPerpsAssets] = useState(false)
 
   useEffect(() => {
     if (!user || !isAddress(user)) return
@@ -19,6 +24,10 @@ export function useHyperliquid(user: Address) {
     fetchFills()
     fetchOpenPositions()
   }, [user])
+
+  useEffect(() => {
+    fetchPerpsAssets()
+  }, [])
 
   const fetchOpenPositions = async () => {
     setIsLoadingOpenPositions(true)
@@ -72,12 +81,28 @@ export function useHyperliquid(user: Address) {
     }
   }
 
+  const fetchPerpsAssets = async () => {
+    setIsLoadingPerpsAssets(true)
+
+    try {
+      const response = await fetch(`/api/hyperliquid/assets`)
+      const data = await response.json()
+      setPerpsAssets(data.assets)
+    } catch (error) {
+      console.error("Error fetching perps assets:", error)
+    } finally {
+      setIsLoadingPerpsAssets(false)
+    }
+  }
+
   return {
     orders,
     fills,
+    perpsAssets,
     openPositions,
     isLoadingOrders,
     isLoadingFills,
     isLoadingOpenPositions,
+    isLoadingPerpsAssets,
   }
 }

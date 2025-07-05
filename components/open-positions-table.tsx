@@ -28,7 +28,7 @@ import {
 } from "lucide-react"
 import { AssetPosition } from "@/types/hyperliquid.type"
 
-interface AssetPositionTableProps {
+interface OpenPositionsTableProps {
   positions: AssetPosition[]
   isLoading?: boolean
 }
@@ -44,10 +44,10 @@ type SortField =
   | "leverage"
 type SortDirection = "asc" | "desc"
 
-export function AssetPositionTable({
+export function OpenPositionsTable({
   positions,
   isLoading = false,
-}: AssetPositionTableProps) {
+}: OpenPositionsTableProps) {
   const [sortField, setSortField] = useState<SortField>("coin")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const [coinFilter, setCoinFilter] = useState<string>("")
@@ -434,8 +434,8 @@ export function AssetPositionTable({
                           {formatCurrency(position.position.liquidationPx)}
                         </span>
                       ) : (
-                        <div className="flex items-center justify-center">
-                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                        <div className="flex items-center justify-center opacity-50">
+                          N/A
                         </div>
                       )}
                     </TableCell>

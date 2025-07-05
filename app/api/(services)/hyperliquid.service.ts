@@ -70,9 +70,15 @@ export class HyperliquidService {
     price?: number
   }) {
     const marketPrice = await this.getAssetPrice(asset)
-    const limit_px = (price ?? marketPrice).toFixed()
     const perpMetadata = await this.getAssetMetadata(asset)
-    const size = (+sizeUsd / +marketPrice).toFixed(perpMetadata?.szDecimals)
+
+    const szDecimals = perpMetadata?.szDecimals ?? 3
+    const maxPriceDecimals = Math.max(0, 6 - szDecimals)
+
+    const rawPrice = price ?? marketPrice
+    const limit_px = Number(rawPrice).toFixed(maxPriceDecimals)
+
+    const size = (sizeUsd / rawPrice).toFixed(szDecimals)
 
     const response: OpenMarketPositionResponse =
       await this.hyperliquid.exchange.placeOrder({
@@ -161,5 +167,10 @@ export class HyperliquidService {
     }
 
     return assetMetadata
+  }
+
+  async getAllPerpsAssets(): Promise<string[]> {
+    const assets = await this.hyperliquid.info.getAllAssets()
+    return assets.perp
   }
 }
