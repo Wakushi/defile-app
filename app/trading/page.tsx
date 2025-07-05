@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm, FormProvider } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -27,8 +27,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import { useCrossChainTransfer } from "@/hooks/use-cross-chain-transfer"
+import { SupportedChainId } from "@/lib/chains"
+import { Wallet, RefreshCw } from "lucide-react"
 
-// Form validation schema
 const tradeFormSchema = z.object({
   asset: z.string().min(1, "Asset is required"),
   size: z.number().positive("Size must be positive"),
@@ -48,7 +50,31 @@ const tradingPairs = [
 ]
 
 export default function TradingPage() {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { getBalance } = useCrossChainTransfer()
+
+  const [sourceChain, setSourceChain] = useState<SupportedChainId>(
+    SupportedChainId.ETH_SEPOLIA
+  )
+  const [balance, setBalance] = useState<string>("0")
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
+  const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false)
+
+  const fetchBalance = async () => {
+    setIsLoadingBalance(true)
+    try {
+      const balance = await getBalance(sourceChain)
+      setBalance(balance)
+    } catch (error) {
+      console.error("Failed to get balance:", error)
+      setBalance("0")
+    } finally {
+      setIsLoadingBalance(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchBalance()
+  }, [sourceChain])
 
   const formMethods = useForm<TradeFormData>({
     resolver: zodResolver(tradeFormSchema),
