@@ -1,0 +1,21 @@
+const DEFAULT_USDC_DECIMALS = 6
+
+const HYPERLIQUID_TESTNET_USDC2 = "0x1baAbB04529D43a73232B713C0FE471f7c7334d5"
+
+const HYPERLIQUID_MAINNET_BRIDGE_ADDRESS =
+  "0x2df1c51e09aecf9cacb7bc98cb1742757f163df7"
+const HYPERLIQUID_TESTNET_BRIDGE_ADDRESS =
+  "0x08cfc1B6b2dCF36A1480b99353A354AA8AC56f89"
+
+const SIMPLE_ERC20_ABI = [
+  "function transfer(address to, uint256 amount) public returns (bool)",
+  "function transferFrom(address from, address to, uint256 amount) public returns (bool)",
+]
+
+export {
+  HYPERLIQUID_TESTNET_USDC2,
+  HYPERLIQUID_MAINNET_BRIDGE_ADDRESS,
+  HYPERLIQUID_TESTNET_BRIDGE_ADDRESS,
+  SIMPLE_ERC20_ABI,
+  DEFAULT_USDC_DECIMALS,
+}

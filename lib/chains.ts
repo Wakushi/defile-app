@@ -122,3 +122,19 @@ export const SUPPORTED_CHAINS = [
 // IRIS API URL for CCTP attestations (testnet)
 export const IRIS_API_URL =
   process.env.IRIS_API_URL ?? "https://iris-api-sandbox.circle.com"
+
+export const isTestnet = (chainId: number) => {
+  return (
+    chainId === SupportedChainId.ETH_SEPOLIA ||
+    chainId === SupportedChainId.AVAX_FUJI ||
+    chainId === SupportedChainId.BASE_SEPOLIA ||
+    chainId === SupportedChainId.SONIC_BLAZE ||
+    chainId === SupportedChainId.LINEA_SEPOLIA ||
+    chainId === SupportedChainId.ARBITRUM_SEPOLIA ||
+    chainId === SupportedChainId.WORLDCHAIN_SEPOLIA ||
+    chainId === SupportedChainId.OPTIMISM_SEPOLIA ||
+    chainId === SupportedChainId.CODEX_TESTNET ||
+    chainId === SupportedChainId.UNICHAIN_SEPOLIA ||
+    chainId === SupportedChainId.POLYGON_AMOY
+  )
+}

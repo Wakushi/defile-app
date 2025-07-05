@@ -13,6 +13,9 @@ export function Navigation() {
             DeFile
           </Link>
           <div className="flex items-center gap-4">
+            <Link href="/fund">
+              <Button variant="outline">Fund Account</Button>
+            </Link>
             <Link href="/trading">
               <Button variant="outline">Trading</Button>
             </Link>

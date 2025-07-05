@@ -40,6 +40,7 @@ import {
   DESTINATION_DOMAINS,
   IRIS_API_URL,
 } from "@/lib/chains"
+import { DEFAULT_USDC_DECIMALS } from "@/lib/constants"
 
 // Custom Codex chain definition with Thirdweb RPC
 const codexTestnet = defineChain({
@@ -92,8 +93,6 @@ export function useCrossChainTransfer() {
   const [logs, setLogs] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  const DEFAULT_DECIMALS = 6
-
   const addLog = (message: string) =>
     setLogs((prev) => [
       ...prev,
@@ -105,11 +104,13 @@ export function useCrossChainTransfer() {
     const evmKey =
       process.env.NEXT_PUBLIC_EVM_PRIVATE_KEY ||
       process.env.NEXT_PUBLIC_PRIVATE_KEY
+
     if (!evmKey) {
       throw new Error(
         "EVM private key not found. Please set NEXT_PUBLIC_EVM_PRIVATE_KEY in your environment."
       )
     }
+
     return evmKey
   }
 
@@ -164,7 +165,7 @@ export function useCrossChainTransfer() {
       args: [account.address],
     })
 
-    const formattedBalance = formatUnits(balance, DEFAULT_DECIMALS)
+    const formattedBalance = formatUnits(balance, DEFAULT_USDC_DECIMALS)
     return formattedBalance
   }
 
@@ -384,7 +385,7 @@ export function useCrossChainTransfer() {
     transferType: "fast" | "standard"
   ) => {
     try {
-      const numericAmount = parseUnits(amount, DEFAULT_DECIMALS)
+      const numericAmount = parseUnits(amount, DEFAULT_USDC_DECIMALS)
 
       let sourceClient: any, destinationClient: any, defaultDestination: string
 
@@ -466,6 +467,8 @@ export function useCrossChainTransfer() {
     error,
     executeTransfer,
     getBalance,
+    getPublicClient,
+    getClients,
     reset,
   }
 }
