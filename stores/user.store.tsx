@@ -1,29 +1,62 @@
-import { useEffect, useState } from "react"
-import { useCrossChainTransfer } from "@/hooks/use-cross-chain-transfer"
+"use client"
+
+import {
+  createContext,
+  useContext,
+  ReactNode,
+  useState,
+  useEffect,
+} from "react"
+import { useWallets } from "@privy-io/react-auth"
+import { Address, isAddress } from "viem"
 import { SupportedChainId } from "@/lib/chains"
 import { HyperliquidMarginInfo } from "@/types/hyperliquid.type"
-import { HYPERLIQUID_TESTNET_API_URL, USER } from "@/lib/constants"
+import { useCrossChainTransfer } from "@/hooks/use-cross-chain-transfer"
+import { HYPERLIQUID_TESTNET_API_URL } from "@/lib/constants"
 
-interface UseBalancesReturn {
+interface UserState {
+  address: Address | undefined
+  chainId: SupportedChainId | undefined
   balance: string
   hyperliquidBalance: string
   isLoadingBalance: boolean
   isLoadingHyperliquid: boolean
-  fetchBalance: () => Promise<void>
-  fetchHyperliquidBalance: () => Promise<void>
   refreshAllBalances: () => Promise<void>
 }
 
-export function useBalances(sourceChain: SupportedChainId): UseBalancesReturn {
+interface UserStoreProviderProps {
+  children: ReactNode
+}
+
+const UserContext = createContext<UserState | undefined>(undefined)
+
+export function UserStoreProvider({ children }: UserStoreProviderProps) {
+  const { wallets } = useWallets()
   const { getBalance } = useCrossChainTransfer()
 
+  const [account, setAccount] = useState<Address | undefined>()
+  const [sourceChain, setSourceChain] = useState<SupportedChainId | undefined>()
   const [balance, setBalance] = useState<string>("0")
   const [hyperliquidBalance, setHyperliquidBalance] = useState<string>("0")
+
   const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false)
   const [isLoadingHyperliquid, setIsLoadingHyperliquid] =
     useState<boolean>(false)
 
+  useEffect(() => {
+    if (!wallets || !wallets.length || !wallets[0]) return
+
+    const wallet = wallets[0]
+    const chainId = wallet.chainId.split(":")[1]
+
+    setSourceChain(Number(chainId))
+    setAccount(wallet.address as Address)
+    refreshAllBalances()
+  }, [wallets])
+
   const fetchBalance = async () => {
+    if (!sourceChain) return
+
     setIsLoadingBalance(true)
     try {
       const balance = await getBalance(sourceChain)
@@ -37,6 +70,8 @@ export function useBalances(sourceChain: SupportedChainId): UseBalancesReturn {
   }
 
   const fetchHyperliquidBalance = async () => {
+    if (!account || !isAddress(account)) return
+
     setIsLoadingHyperliquid(true)
     try {
       const response = await fetch(HYPERLIQUID_TESTNET_API_URL, {
@@ -46,7 +81,7 @@ export function useBalances(sourceChain: SupportedChainId): UseBalancesReturn {
         },
         body: JSON.stringify({
           type: "clearinghouseState",
-          user: USER,
+          user: account,
         }),
       })
 
@@ -64,17 +99,25 @@ export function useBalances(sourceChain: SupportedChainId): UseBalancesReturn {
     await Promise.all([fetchBalance(), fetchHyperliquidBalance()])
   }
 
-  useEffect(() => {
-    refreshAllBalances()
-  }, [sourceChain])
-
-  return {
+  const userState: UserState = {
+    address: account,
+    chainId: sourceChain,
     balance,
     hyperliquidBalance,
     isLoadingBalance,
     isLoadingHyperliquid,
-    fetchBalance,
-    fetchHyperliquidBalance,
     refreshAllBalances,
   }
+
+  return (
+    <UserContext.Provider value={userState}>{children}</UserContext.Provider>
+  )
+}
+
+export function useUser() {
+  const context = useContext(UserContext)
+  if (context === undefined) {
+    throw new Error("useUser must be used within a UserStoreProvider")
+  }
+  return context
 }

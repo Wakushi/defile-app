@@ -42,7 +42,6 @@ import {
 } from "@/lib/chains"
 import { DEFAULT_USDC_DECIMALS } from "@/lib/constants"
 import { CircleAttestation } from "@/types/circle.type"
-import { CIRCLE_ATTESTATION } from "@/lib/attestations"
 
 // Custom Codex chain definition with Thirdweb RPC
 const codexTestnet = defineChain({

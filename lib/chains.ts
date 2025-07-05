@@ -138,3 +138,7 @@ export const isTestnet = (chainId: number) => {
     chainId === SupportedChainId.POLYGON_AMOY
   )
 }
+
+export const getChainName = (chainId: SupportedChainId) => {
+  return CHAIN_TO_CHAIN_NAME[chainId]
+}

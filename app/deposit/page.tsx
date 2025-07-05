@@ -21,10 +21,8 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { useCrossChainTransfer } from "@/hooks/use-cross-chain-transfer"
-import { useBalances } from "@/hooks/use-balances"
-import { isTestnet, SupportedChainId } from "@/lib/chains"
+import { getChainName, SupportedChainId } from "@/lib/chains"
 import BalanceDisplay from "@/components/balance-display"
-import { ArrowRight, Wallet, TrendingUp } from "lucide-react"
 import { TransferLog } from "@/components/transfer-log"
 import { parseUnits, encodeFunctionData } from "viem"
 import {
@@ -34,6 +32,7 @@ import {
   DEFAULT_USDC_DECIMALS,
 } from "@/lib/constants"
 import { ERC20_ABI } from "@/lib/abi"
+import { useUser } from "@/stores/user.store"
 
 const fundFormSchema = z.object({
   amount: z.number().positive("Amount must be positive"),
@@ -43,23 +42,10 @@ type FundFormData = z.infer<typeof fundFormSchema>
 
 export default function FundPage() {
   const { executeTransfer, logs, getClients } = useCrossChainTransfer()
-
-  const [sourceChain, setSourceChain] = useState<SupportedChainId>(
-    SupportedChainId.BASE_SEPOLIA
-  )
+  const { chainId, balance, hyperliquidBalance, refreshAllBalances } = useUser()
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [transferStatus, setTransferStatus] = useState<string>("")
-
-  const {
-    balance,
-    hyperliquidBalance,
-    isLoadingBalance,
-    isLoadingHyperliquid,
-    fetchBalance,
-    fetchHyperliquidBalance,
-    refreshAllBalances,
-  } = useBalances(sourceChain)
 
   const formMethods = useForm<FundFormData>({
     resolver: zodResolver(fundFormSchema),
@@ -72,13 +58,18 @@ export default function FundPage() {
   const { control, watch, handleSubmit, reset } = formMethods
   const watchedAmount = watch("amount")
 
-  const onSubmit = async (data: FundFormData) => {
+  async function onSubmit(data: FundFormData) {
+    if (!chainId) {
+      console.error("No chain ID available")
+      return
+    }
+
     setIsSubmitting(true)
     setTransferStatus("Initiating transfer...")
 
     try {
       await executeTransfer(
-        sourceChain,
+        chainId,
         SupportedChainId.ARBITRUM_SEPOLIA,
         data.amount.toString(),
         "standard"
@@ -111,14 +102,20 @@ export default function FundPage() {
   }
 
   async function bridgeUSDCToHyperliquid(amount: string) {
+    if (!chainId) {
+      console.error("No chain ID available")
+      return
+    }
+
     const numericAmount = parseUnits(amount, DEFAULT_USDC_DECIMALS)
 
-    const bridgeAddress = isTestnet(sourceChain)
-      ? HYPERLIQUID_TESTNET_BRIDGE_ADDRESS
-      : HYPERLIQUID_MAINNET_BRIDGE_ADDRESS
+    const bridgeAddress =
+      chainId === SupportedChainId.BASE_SEPOLIA
+        ? HYPERLIQUID_TESTNET_BRIDGE_ADDRESS
+        : HYPERLIQUID_MAINNET_BRIDGE_ADDRESS
 
     try {
-      const walletClient = getClients(SupportedChainId.ARBITRUM_SEPOLIA)
+      const walletClient = getClients(chainId)
 
       if (!walletClient) {
         throw new Error("Wallet client not available")
@@ -164,9 +161,9 @@ export default function FundPage() {
         <BalanceDisplay
           balance={balance}
           hyperliquidBalance={hyperliquidBalance}
-          sourceChain={sourceChain}
-          onRefresh={fetchBalance}
-          onRefreshHyperliquid={fetchHyperliquidBalance}
+          sourceChain={chainId || SupportedChainId.BASE_SEPOLIA}
+          onRefresh={refreshAllBalances}
+          onRefreshHyperliquid={refreshAllBalances}
         />
       </div>
 
@@ -204,70 +201,63 @@ export default function FundPage() {
                 )}
               />
 
-              {/* Transfer Preview */}
-              {watchedAmount > 0 && (
-                <Card className="bg-gray-50 dark:bg-gray-800/50">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <Wallet className="h-4 w-4 text-blue-600" />
-                        <span className="text-gray-600 dark:text-gray-400">
-                          From:{" "}
-                          {sourceChain === SupportedChainId.BASE_SEPOLIA
-                            ? "Base Sepolia"
-                            : "Sepolia"}
-                        </span>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-gray-400" />
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-green-600" />
-                        <span className="text-gray-600 dark:text-gray-400">
-                          To: Hyperliquid
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-2 text-center">
-                      <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                        ${formatAmount(watchedAmount)}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Transfer Status */}
-              {transferStatus && (
-                <div
-                  className={`p-3 rounded-lg text-sm ${
-                    transferStatus.includes("failed")
-                      ? "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400"
-                      : transferStatus.includes("completed")
-                      ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
-                      : "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
-                  }`}
-                >
-                  {transferStatus}
-                </div>
-              )}
-
-              {/* Submit Button */}
+              {/* Transfer Button */}
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isSubmitting || watchedAmount <= 0}
+                disabled={isSubmitting}
                 onClick={(e) => {
                   e.preventDefault()
                   handleSubmit(onSubmit)(e)
                 }}
               >
-                {isSubmitting ? "Transferring..." : "Transfer to Hyperliquid"}
+                {isSubmitting ? "Processing..." : "Transfer to Hyperliquid"}
               </Button>
+
+              {/* Transfer Status */}
+              {transferStatus && (
+                <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                  {transferStatus}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Transfer Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Transfer Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Amount:</span>
+                  <span className="font-medium">
+                    {watchedAmount
+                      ? `$${formatAmount(watchedAmount)}`
+                      : "Not set"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">From:</span>
+                  <span className="font-medium">
+                    {chainId ? getChainName(chainId) : "Unknown Chain"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">To:</span>
+                  <span className="font-medium">Hyperliquid</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </form>
       </FormProvider>
 
-      <TransferLog logs={logs} />
+      {/* Transfer Log */}
+      <div className="mt-8">
+        <TransferLog logs={logs} />
+      </div>
     </div>
   )
 }

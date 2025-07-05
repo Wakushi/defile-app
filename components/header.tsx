@@ -1,23 +1,38 @@
 "use client"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { useBalances } from "@/hooks/use-balances"
-import { SupportedChainId } from "@/lib/chains"
-import { useState } from "react"
-import { RefreshCw, Wallet, TrendingUp } from "lucide-react"
+import { RefreshCw, Wallet, TrendingUp, Loader2, LogOut } from "lucide-react"
+import { useLogin, useLogout, usePrivy } from "@privy-io/react-auth"
+import { useRouter } from "next/navigation"
+import { useUser } from "@/stores/user.store"
+import { getChainName } from "@/lib/chains"
 
 export function Header() {
-  const [sourceChain, setSourceChain] = useState<SupportedChainId>(
-    SupportedChainId.BASE_SEPOLIA
-  )
+  const { ready, authenticated, user } = usePrivy()
 
   const {
+    address,
     balance,
     hyperliquidBalance,
     isLoadingBalance,
     isLoadingHyperliquid,
     refreshAllBalances,
-  } = useBalances(sourceChain)
+    chainId,
+  } = useUser()
+
+  const router = useRouter()
+
+  const { login } = useLogin({
+    onComplete: () => {
+      router.push("/trading")
+    },
+  })
+
+  const { logout } = useLogout({
+    onSuccess: () => {
+      router.push("/")
+    },
+  })
 
   const formatBalance = (balance: string) => {
     const num = parseFloat(balance)
@@ -28,18 +43,26 @@ export function Header() {
     })
   }
 
-  const getChainName = (chainId: SupportedChainId) => {
-    switch (chainId) {
-      case SupportedChainId.ETH_SEPOLIA:
-        return "Sepolia"
-      case SupportedChainId.BASE_SEPOLIA:
-        return "Base"
-      case SupportedChainId.ARBITRUM_SEPOLIA:
-        return "Arbitrum"
-      default:
-        return "Unknown"
-    }
+  const formatAddress = (address?: string) => {
+    if (!address) return "No wallet"
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
+
+  function debug() {
+    console.log("user: ", user)
+    console.log("address: ", address)
+    console.log("chainId: ", chainId)
+  }
+
+  if (!ready) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="w-6 h-6 animate-spin" />
+      </div>
+    )
+  }
+
+  console.log("chainId: ", chainId)
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b bg-white/50 backdrop-blur-sm dark:bg-gray-950">
@@ -53,64 +76,75 @@ export function Header() {
               DeFile
             </Link>
 
-            <div className="flex items-center gap-4">
-              <Link href="/deposit">
-                <Button variant="outline">Deposit</Button>
-              </Link>
-              <Link href="/trading">
-                <Button variant="outline">Trading</Button>
-              </Link>
+            {!authenticated ? (
+              <Button onClick={() => login()}>Login</Button>
+            ) : (
+              <>
+                <div className="flex items-center gap-4">
+                  <Link href="/trading">
+                    <Button variant="outline">Trading</Button>
+                  </Link>
+                  <Link href="/deposit">
+                    <Button variant="outline">Deposit</Button>
+                  </Link>
 
-              {/* Balance Display */}
-              <div className="flex items-center gap-3 ml-6 pl-6 border-l border-gray-200 dark:border-gray-700">
-                {/* Source Chain Balance */}
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-md">
-                    <Wallet className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                  <div className="flex items-center gap-3 ml-6 pl-6 border-l border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-md">
+                        <Wallet className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {chainId ? getChainName(chainId) : "Unknown Chain"}
+                        </p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                          ${formatBalance(balance)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Hyperliquid Balance */}
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md">
+                        <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Hyperliquid
+                        </p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                          ${formatBalance(hyperliquidBalance)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Refresh Button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={refreshAllBalances}
+                      disabled={isLoadingBalance || isLoadingHyperliquid}
+                      className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    >
+                      <RefreshCw
+                        className={`h-4 w-4 text-gray-600 dark:text-gray-400 ${
+                          isLoadingBalance || isLoadingHyperliquid
+                            ? "animate-spin"
+                            : ""
+                        }`}
+                      />
+                    </Button>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {getChainName(sourceChain)}
-                    </p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      ${formatBalance(balance)}
-                    </p>
-                  </div>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {formatAddress(address)}
+                  </span>
+                  <Button onClick={() => logout()}>
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                  <Button onClick={() => debug()}>Debug</Button>
                 </div>
-
-                {/* Hyperliquid Balance */}
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md">
-                    <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Hyperliquid
-                    </p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      ${formatBalance(hyperliquidBalance)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Refresh Button */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={refreshAllBalances}
-                  disabled={isLoadingBalance || isLoadingHyperliquid}
-                  className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 text-gray-600 dark:text-gray-400 ${
-                      isLoadingBalance || isLoadingHyperliquid
-                        ? "animate-spin"
-                        : ""
-                    }`}
-                  />
-                </Button>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
       </nav>

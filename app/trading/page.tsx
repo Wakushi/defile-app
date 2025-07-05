@@ -27,11 +27,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { useHyperliquid } from "@/hooks/use-hyperliquid"
-import { USER } from "@/lib/constants"
 import { OpenPositionsTable } from "@/components/open-positions-table"
-import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { useUser } from "@/stores/user.store"
+import { useHyperliquid } from "@/hooks/use-hyperliquid"
 
 const tradeFormSchema = z.object({
   asset: z.string().min(1, "Asset is required"),
@@ -43,12 +42,9 @@ const tradeFormSchema = z.object({
 type TradeFormData = z.infer<typeof tradeFormSchema>
 
 export default function TradingPage() {
-  const {
-    openPositions,
-    isLoadingOpenPositions,
-    perpsAssets,
-    isLoadingPerpsAssets,
-  } = useHyperliquid(USER)
+  const { address } = useUser()
+  const { openPositions, isLoadingOpenPositions, perpsAssets } =
+    useHyperliquid(address)
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
 
@@ -88,6 +84,7 @@ export default function TradingPage() {
       toast.success("Position opened successfully")
     } catch (error) {
       console.error("Error opening position:", error)
+      toast.error("Failed to open position")
     } finally {
       setIsSubmitting(false)
     }
@@ -116,206 +113,201 @@ export default function TradingPage() {
           />
         </div>
         <div className="w-[20%]">
-          {isLoadingPerpsAssets ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="w-6 h-6 animate-spin" />
-            </div>
-          ) : (
-            <FormProvider {...formMethods}>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>New Position</CardTitle>
-                    <CardDescription>
-                      Select your trading pair and enter position details
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Asset Selection */}
-                    <FormField
-                      control={control}
-                      name="asset"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Trading Pair</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl className="w-full">
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a trading pair" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {perpsAssets.map((assetName) => (
-                                <SelectItem key={assetName} value={assetName}>
-                                  {formatAssetName(assetName)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {/* Side Selection */}
-                    <FormField
-                      control={control}
-                      name="side"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Side</FormLabel>
-                          <FormControl>
-                            <div className="flex gap-2">
-                              <Button
-                                type="button"
-                                variant={
-                                  field.value === "buy" ? "default" : "outline"
-                                }
-                                onClick={() => field.onChange("buy")}
-                                className="flex-1"
-                              >
-                                Buy / Long
-                              </Button>
-                              <Button
-                                type="button"
-                                variant={
-                                  field.value === "sell" ? "default" : "outline"
-                                }
-                                onClick={() => field.onChange("sell")}
-                                className="flex-1"
-                              >
-                                Sell / Short
-                              </Button>
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {/* Size Input */}
-                    <FormField
-                      control={control}
-                      name="sizeUsd"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Size (USD)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="1000.00"
-                              value={field.value || ""}
-                              onChange={(e) =>
-                                field.onChange(parseFloat(e.target.value) || 0)
-                              }
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {/* Price Input (Optional) */}
-                    <FormField
-                      control={control}
-                      name="price"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Price (Optional)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="Leave empty for market order"
-                              value={field.value || ""}
-                              onChange={(e) => {
-                                const value = e.target.value
-                                field.onChange(
-                                  value ? parseFloat(value) : undefined
-                                )
-                              }}
-                            />
-                          </FormControl>
-                          <p className="text-sm text-gray-500">
-                            Leave empty to place a market order
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {/* Submit Button */}
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={isSubmitting}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        handleSubmit(onSubmit)(e)
-                      }}
-                    >
-                      {isSubmitting ? "Submitting..." : "Open Position"}
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {/* Position Summary */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Position Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Asset:</span>
-                        <span className="font-medium">
-                          {watchedValues.asset
-                            ? formatAssetName(
-                                perpsAssets.find(
-                                  (asset) => asset === watchedValues.asset
-                                ) || watchedValues.asset
-                              )
-                            : "Not selected"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Side:</span>
-                        <span
-                          className={`font-medium ${
-                            watchedValues.side === "buy"
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
+          <FormProvider {...formMethods}>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>New Position</CardTitle>
+                  <CardDescription>
+                    Select your trading pair and enter position details
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Asset Selection */}
+                  <FormField
+                    control={control}
+                    name="asset"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Trading Pair</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
                         >
-                          {watchedValues.side === "buy" ? "Long" : "Short"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Size:</span>
-                        <span className="font-medium">
-                          {watchedValues.sizeUsd
-                            ? `$${watchedValues.sizeUsd.toLocaleString()}`
-                            : "Not set"}
-                        </span>
-                      </div>
-                      {watchedValues.price && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Price:</span>
-                          <span className="font-medium">
-                            ${watchedValues.price.toLocaleString()}
-                          </span>
-                        </div>
-                      )}
+                          <FormControl className="w-full">
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a trading pair" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {perpsAssets.map((pair) => (
+                              <SelectItem key={pair} value={pair}>
+                                {formatAssetName(pair)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Side Selection */}
+                  <FormField
+                    control={control}
+                    name="side"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Side</FormLabel>
+                        <FormControl>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant={
+                                field.value === "buy" ? "default" : "outline"
+                              }
+                              onClick={() => field.onChange("buy")}
+                              className="flex-1"
+                            >
+                              Buy / Long
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={
+                                field.value === "sell" ? "default" : "outline"
+                              }
+                              onClick={() => field.onChange("sell")}
+                              className="flex-1"
+                            >
+                              Sell / Short
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Size Input */}
+                  <FormField
+                    control={control}
+                    name="sizeUsd"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Size (USD)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="Enter position size in USD"
+                            value={field.value || ""}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              field.onChange(value ? parseFloat(value) : 0)
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Price Input */}
+                  <FormField
+                    control={control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price (Optional)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="Leave empty for market order"
+                            value={field.value || ""}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              field.onChange(
+                                value ? parseFloat(value) : undefined
+                              )
+                            }}
+                          />
+                        </FormControl>
+                        <p className="text-sm text-gray-500">
+                          Leave empty to place a market order
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Submit Button */}
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isSubmitting}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleSubmit(onSubmit)(e)
+                    }}
+                  >
+                    {isSubmitting ? "Submitting..." : "Open Position"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Position Summary */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Position Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Asset:</span>
+                      <span className="font-medium">
+                        {watchedValues.asset
+                          ? formatAssetName(
+                              perpsAssets.find(
+                                (p) => p === watchedValues.asset
+                              ) || watchedValues.asset
+                            )
+                          : "Not selected"}
+                      </span>
                     </div>
-                  </CardContent>
-                </Card>
-              </form>
-            </FormProvider>
-          )}
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Side:</span>
+                      <span
+                        className={`font-medium ${
+                          watchedValues.side === "buy"
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {watchedValues.side === "buy" ? "Long" : "Short"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Size:</span>
+                      <span className="font-medium">
+                        {watchedValues.sizeUsd
+                          ? `$${watchedValues.sizeUsd.toLocaleString()}`
+                          : "Not set"}
+                      </span>
+                    </div>
+                    {watchedValues.price && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Price:</span>
+                        <span className="font-medium">
+                          ${watchedValues.price.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </form>
+          </FormProvider>
         </div>
       </div>
     </div>

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react"
 import { UserFills, UserOpenOrders } from "hyperliquid"
 import { Address, isAddress } from "viem"
-import { HYPERLIQUID_TESTNET_API_URL, USER } from "@/lib/constants"
+import { HYPERLIQUID_TESTNET_API_URL } from "@/lib/constants"
 import { AssetPosition, HyperliquidMarginInfo } from "@/types/hyperliquid.type"
 
-export function useHyperliquid(user: Address) {
+export function useHyperliquid(user: Address | undefined) {
   const [orders, setOrders] = useState<UserOpenOrders[]>([])
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
 
@@ -39,7 +39,7 @@ export function useHyperliquid(user: Address) {
         },
         body: JSON.stringify({
           type: "clearinghouseState",
-          user: USER,
+          user,
         }),
       })
 

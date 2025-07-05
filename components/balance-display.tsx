@@ -1,4 +1,4 @@
-import { SupportedChainId } from "@/lib/chains"
+import { getChainName, SupportedChainId } from "@/lib/chains"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
 import { Wallet, RefreshCw, TrendingUp } from "lucide-react"
@@ -23,19 +23,6 @@ export default function BalanceDisplay({
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })
-  }
-
-  const getChainName = (chainId: SupportedChainId) => {
-    switch (chainId) {
-      case SupportedChainId.ETH_SEPOLIA:
-        return "Sepolia"
-      case SupportedChainId.BASE_SEPOLIA:
-        return "Base Sepolia"
-      case SupportedChainId.ARBITRUM_SEPOLIA:
-        return "Arbitrum Sepolia"
-      default:
-        return "Unknown"
-    }
   }
 
   return (
