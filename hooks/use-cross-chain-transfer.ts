@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useState } from "react"
 import {
   createWalletClient,
   http,
@@ -38,15 +38,9 @@ export type TransferStep =
   | "error"
 
 export function useCrossChainTransfer() {
+  const [transferStatus, setTransferStatus] = useState<string>("")
   const [currentStep, setCurrentStep] = useState<TransferStep>("idle")
-  const [logs, setLogs] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
-
-  const addLog = (message: string) =>
-    setLogs((prev) => [
-      ...prev,
-      `[${new Date().toLocaleTimeString()}] ${message}`,
-    ])
 
   const getClients = (chainId: SupportedChainId) => {
     return createWalletClient({
@@ -61,7 +55,7 @@ export function useCrossChainTransfer() {
     sourceChainId: SupportedChainId
   ) => {
     setCurrentStep("approving")
-    addLog("Checking USDC allowance...")
+    setTransferStatus("Checking USDC allowance...")
 
     const spender = CHAIN_IDS_TO_TOKEN_MESSENGER[sourceChainId] as `0x${string}`
     const usdcAddress = CHAIN_IDS_TO_USDC_ADDRESSES[
@@ -91,7 +85,9 @@ export function useCrossChainTransfer() {
       })
 
       if (BigInt(allowance) >= amount) {
-        addLog("USDC allowance already sufficient. Skipping approval.")
+        setTransferStatus(
+          "USDC allowance already sufficient. Skipping approval."
+        )
         return null
       }
 
@@ -116,9 +112,9 @@ export function useCrossChainTransfer() {
 
       const tx = await walletClient.writeContract(request)
 
-      addLog(`USDC Approval Tx: ${tx}`)
       return tx
     } catch (err) {
+      setTransferStatus("Approval failed")
       setError("Approval failed")
       throw err
     }
@@ -133,7 +129,7 @@ export function useCrossChainTransfer() {
     transferType: "fast" | "standard"
   ) => {
     setCurrentStep("burning")
-    addLog("Burning USDC...")
+    setTransferStatus("Burning USDC...")
 
     try {
       const finalityThreshold = transferType === "fast" ? 1000 : 2000
@@ -180,7 +176,6 @@ export function useCrossChainTransfer() {
 
       const tx = await walletClient.writeContract(request)
 
-      addLog(`Burn Tx: ${tx}`)
       return tx
     } catch (err) {
       setError("Burn failed")
@@ -193,7 +188,7 @@ export function useCrossChainTransfer() {
     sourceChainId: SupportedChainId
   ) => {
     setCurrentStep("waiting-attestation")
-    addLog("Retrieving attestation...")
+    setTransferStatus("Retrieving attestation...")
 
     const url = `${IRIS_API_URL}/v2/messages/${DESTINATION_DOMAINS[sourceChainId]}?transactionHash=${transactionHash}`
 
@@ -201,10 +196,10 @@ export function useCrossChainTransfer() {
       try {
         const response = await axios.get(url)
         if (response.data?.messages?.[0]?.status === "complete") {
-          addLog("Attestation retrieved!")
+          setTransferStatus("Attestation retrieved!")
           return response.data.messages[0]
         }
-        addLog("Waiting for attestation...")
+        setTransferStatus("Waiting for attestation...")
         await new Promise((resolve) => setTimeout(resolve, 5000))
       } catch (error) {
         if (axios.isAxiosError(error) && error.response?.status === 404) {
@@ -212,7 +207,7 @@ export function useCrossChainTransfer() {
           continue
         }
         setError("Attestation retrieval failed")
-        addLog(
+        setTransferStatus(
           `Attestation error: ${
             error instanceof Error ? error.message : "Unknown error"
           }`
@@ -231,7 +226,7 @@ export function useCrossChainTransfer() {
     const MAX_RETRIES = 3
     let retries = 0
     setCurrentStep("minting")
-    addLog("Minting USDC...")
+    setTransferStatus("Minting USDC...")
 
     while (retries < MAX_RETRIES) {
       try {
@@ -264,7 +259,6 @@ export function useCrossChainTransfer() {
 
         // Add 20% buffer to gas estimate
         const gasWithBuffer = (gasEstimate * 120n) / 100n
-        addLog(`Gas Used: ${formatUnits(gasWithBuffer, 9)} Gwei`)
 
         const walletClient = getWalletClient(destinationChainId)
 
@@ -277,11 +271,12 @@ export function useCrossChainTransfer() {
           functionName: "receiveMessage",
           args: [attestation.message, attestation.attestation],
           account: from,
+          gas: gasWithBuffer,
         })
 
         const tx = await walletClient.writeContract(request)
 
-        addLog(`Minted USDC on Arbitrum! Tx: ${tx}`)
+        setTransferStatus(`Minted USDC on Arbitrum! Tx: ${tx}`)
         setCurrentStep("completed")
 
         await switchChain(walletClient, {
@@ -291,7 +286,7 @@ export function useCrossChainTransfer() {
       } catch (err) {
         if (err instanceof TransactionExecutionError && retries < MAX_RETRIES) {
           retries++
-          addLog(`Retry ${retries}/${MAX_RETRIES}...`)
+          setTransferStatus(`Retry ${retries}/${MAX_RETRIES}...`)
           await new Promise((resolve) => setTimeout(resolve, 2000 * retries))
           continue
         }
@@ -357,7 +352,7 @@ export function useCrossChainTransfer() {
       await mintUSDC(from, sourceChainId, destinationChainId, attestation)
     } catch (error) {
       setCurrentStep("error")
-      addLog(
+      setTransferStatus(
         `Error: ${error instanceof Error ? error.message : "Unknown error"}`
       )
     }
@@ -365,16 +360,17 @@ export function useCrossChainTransfer() {
 
   const reset = () => {
     setCurrentStep("idle")
-    setLogs([])
+    setTransferStatus("")
     setError(null)
   }
 
   return {
     currentStep,
-    logs,
     error,
     executeTransfer,
     getClients,
     reset,
+    transferStatus,
+    setTransferStatus,
   }
 }
