@@ -30,6 +30,7 @@ import {
 import { useCrossChainTransfer } from "@/hooks/use-cross-chain-transfer"
 import { SupportedChainId } from "@/lib/chains"
 import BalanceDisplay from "@/components/balance-display"
+import { HyperliquidMarginInfo } from "@/types/hyperliquid.type"
 
 const tradeFormSchema = z.object({
   asset: z.string().min(1, "Asset is required"),
@@ -49,13 +50,19 @@ const tradingPairs = [
   { value: "AVAX-PERP", label: "AVAX Perpetual" },
 ]
 
+const HYPERLIQUID_API_URL = "https://api.hyperliquid.xyz/info"
+const HYPERLIQUID_TESTNET_API_URL = "https://api.hyperliquid-testnet.xyz/info"
+
+const USER = "0x4206730E2C2281F4dF24c0e588F6C8f5dBAd03BA"
+
 export default function TradingPage() {
   const { getBalance } = useCrossChainTransfer()
 
   const [sourceChain, setSourceChain] = useState<SupportedChainId>(
-    SupportedChainId.ETH_SEPOLIA
+    SupportedChainId.BASE_SEPOLIA
   )
   const [balance, setBalance] = useState<string>("0")
+  const [hyperliquidBalance, setHyperliquidBalance] = useState<string>("0")
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false)
 
@@ -72,8 +79,30 @@ export default function TradingPage() {
     }
   }
 
+  const fetchHyperliquidBalance = async () => {
+    try {
+      const response = await fetch(HYPERLIQUID_TESTNET_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "clearinghouseState",
+          user: USER,
+        }),
+      })
+
+      const data: HyperliquidMarginInfo = await response.json()
+      console.log("Hyperliquid balance:", data)
+      setHyperliquidBalance(data.marginSummary.totalRawUsd)
+    } catch (error) {
+      console.error("Failed to get Hyperliquid balance:", error)
+    }
+  }
+
   useEffect(() => {
     fetchBalance()
+    fetchHyperliquidBalance()
   }, [sourceChain])
 
   const formMethods = useForm<TradeFormData>({
@@ -114,8 +143,10 @@ export default function TradingPage() {
       <div className="mb-6">
         <BalanceDisplay
           balance={balance}
+          hyperliquidBalance={hyperliquidBalance}
           sourceChain={sourceChain}
           onRefresh={fetchBalance}
+          onRefreshHyperliquid={fetchHyperliquidBalance}
         />
       </div>
 
