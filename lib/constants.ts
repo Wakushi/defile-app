@@ -7,15 +7,9 @@ const HYPERLIQUID_MAINNET_BRIDGE_ADDRESS =
 const HYPERLIQUID_TESTNET_BRIDGE_ADDRESS =
   "0x08cfc1B6b2dCF36A1480b99353A354AA8AC56f89"
 
-const SIMPLE_ERC20_ABI = [
-  "function transfer(address to, uint256 amount) public returns (bool)",
-  "function transferFrom(address from, address to, uint256 amount) public returns (bool)",
-]
-
 export {
   HYPERLIQUID_TESTNET_USDC2,
   HYPERLIQUID_MAINNET_BRIDGE_ADDRESS,
   HYPERLIQUID_TESTNET_BRIDGE_ADDRESS,
-  SIMPLE_ERC20_ABI,
   DEFAULT_USDC_DECIMALS,
 }

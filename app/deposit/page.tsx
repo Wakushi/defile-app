@@ -76,8 +76,6 @@ export default function FundPage() {
     setIsSubmitting(true)
     setTransferStatus("Initiating transfer...")
 
-    // 1.SEND USDC FROM SOURCE CHAIN TO ARBITRUM
-
     try {
       await executeTransfer(
         sourceChain,
@@ -92,17 +90,13 @@ export default function FundPage() {
       return
     }
 
-    // 2.SEND USDC FROM ARBITRUM TO HYPERLIQUID
     setTransferStatus("Bridging USDC to Hyperliquid...")
 
     try {
-      const tx = await bridgeUSDCToHyperliquid(data.amount.toString())
-
-      console.log("Transaction hash:", tx)
+      await bridgeUSDCToHyperliquid(data.amount.toString())
 
       setTransferStatus("Transfer completed successfully!")
 
-      // Refresh balances after successful transfer
       setTimeout(() => {
         refreshAllBalances()
         reset()
