@@ -23,7 +23,7 @@ export function TransferLog({ logs }: { logs: string[] }) {
   return (
     <div
       ref={containerRef}
-      className="w-full max-w-2xl mx-auto mt-8 p-4 bg-gray-50 rounded-lg h-64 overflow-y-auto"
+      className="w-full max-w-2xl mx-auto mt-8 p-4 rounded-lg h-64 overflow-y-auto"
     >
       <div className="text-sm font-mono">
         {logs.map((log, index) => (

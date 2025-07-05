@@ -21,8 +21,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { useCrossChainTransfer } from "@/hooks/use-cross-chain-transfer"
-import { getChainName, SupportedChainId } from "@/lib/chains"
-import BalanceDisplay from "@/components/balance-display"
+import { isTestnet, SupportedChainId } from "@/lib/chains"
 import { TransferLog } from "@/components/transfer-log"
 import { parseUnits, encodeFunctionData } from "viem"
 import {
@@ -33,6 +32,8 @@ import {
 } from "@/lib/constants"
 import { ERC20_ABI } from "@/lib/abi"
 import { useUser } from "@/stores/user.store"
+import { toast } from "sonner"
+import { getPublicClient, getWalletClient } from "@/lib/chain-utils"
 
 const fundFormSchema = z.object({
   amount: z.number().positive("Amount must be positive"),
@@ -41,8 +42,8 @@ const fundFormSchema = z.object({
 type FundFormData = z.infer<typeof fundFormSchema>
 
 export default function FundPage() {
+  const { chainId, refreshAllBalances, address } = useUser()
   const { executeTransfer, logs, getClients } = useCrossChainTransfer()
-  const { chainId, balance, hyperliquidBalance, refreshAllBalances } = useUser()
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [transferStatus, setTransferStatus] = useState<string>("")
@@ -55,12 +56,11 @@ export default function FundPage() {
     mode: "onChange",
   })
 
-  const { control, watch, handleSubmit, reset } = formMethods
-  const watchedAmount = watch("amount")
+  const { control, handleSubmit, reset } = formMethods
 
   async function onSubmit(data: FundFormData) {
-    if (!chainId) {
-      console.error("No chain ID available")
+    if (!chainId || !address) {
+      console.error("No chain ID or address available")
       return
     }
 
@@ -68,18 +68,22 @@ export default function FundPage() {
     setTransferStatus("Initiating transfer...")
 
     try {
-      await executeTransfer(
-        chainId,
-        SupportedChainId.ARBITRUM_SEPOLIA,
-        data.amount.toString(),
-        "standard"
-      )
+      await executeTransfer({
+        from: address,
+        sourceChainId: chainId,
+        destinationChainId: SupportedChainId.ARBITRUM_SEPOLIA,
+        amount: data.amount.toString(),
+        transferType: "fast",
+      })
     } catch (error) {
       console.error("Error sending USDC from source chain to Arbitrum:", error)
       setTransferStatus("Transfer failed. Please try again.")
+      toast.error("Transfer failed. Please try again.")
       setIsSubmitting(false)
       return
     }
+
+    toast.success("USDC transferred to Arbitrum")
 
     setTransferStatus("Bridging USDC to Hyperliquid...")
 
@@ -87,9 +91,10 @@ export default function FundPage() {
       await bridgeUSDCToHyperliquid(data.amount.toString())
 
       setTransferStatus("Transfer completed successfully!")
+      toast.success("USDC transferred to Hyperliquid")
 
       setTimeout(() => {
-        refreshAllBalances()
+        refreshAllBalances(chainId)
         reset()
         setTransferStatus("")
       }, 2000)
@@ -109,26 +114,29 @@ export default function FundPage() {
 
     const numericAmount = parseUnits(amount, DEFAULT_USDC_DECIMALS)
 
-    const bridgeAddress =
-      chainId === SupportedChainId.BASE_SEPOLIA
-        ? HYPERLIQUID_TESTNET_BRIDGE_ADDRESS
-        : HYPERLIQUID_MAINNET_BRIDGE_ADDRESS
+    const bridgeAddress = isTestnet(chainId)
+      ? HYPERLIQUID_TESTNET_BRIDGE_ADDRESS
+      : HYPERLIQUID_MAINNET_BRIDGE_ADDRESS
+
+    if (!address) {
+      throw new Error("No address available")
+    }
 
     try {
-      const walletClient = getClients(chainId)
+      const publicClient = getPublicClient(chainId)
+      const walletClient = getWalletClient(chainId)
 
-      if (!walletClient) {
-        throw new Error("Wallet client not available")
-      }
+      // Hyperliquid uses USDC2 on testnet
 
-      const tx = await walletClient.sendTransaction({
-        to: HYPERLIQUID_TESTNET_USDC2,
-        data: encodeFunctionData({
-          abi: ERC20_ABI,
-          functionName: "transfer",
-          args: [bridgeAddress, numericAmount],
-        }),
+      const { request } = await publicClient.simulateContract({
+        account: address,
+        address: HYPERLIQUID_TESTNET_USDC2,
+        abi: ERC20_ABI,
+        functionName: "transfer",
+        args: [bridgeAddress, numericAmount],
       })
+
+      const tx = await walletClient.writeContract(request)
 
       console.log("Transaction hash:", tx)
       return tx
@@ -136,13 +144,6 @@ export default function FundPage() {
       console.error("Error bridging USDC to Hyperliquid:", error)
       throw error
     }
-  }
-
-  const formatAmount = (amount: number) => {
-    return amount.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
   }
 
   return (
@@ -154,17 +155,6 @@ export default function FundPage() {
         <p className="text-gray-600 dark:text-gray-400">
           Transfer USDC from your wallet to Hyperliquid for trading.
         </p>
-      </div>
-
-      {/* Balance Display */}
-      <div className="mb-6">
-        <BalanceDisplay
-          balance={balance}
-          hyperliquidBalance={hyperliquidBalance}
-          sourceChain={chainId || SupportedChainId.BASE_SEPOLIA}
-          onRefresh={refreshAllBalances}
-          onRefreshHyperliquid={refreshAllBalances}
-        />
       </div>
 
       <FormProvider {...formMethods}>
@@ -220,35 +210,6 @@ export default function FundPage() {
                   {transferStatus}
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Transfer Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Transfer Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Amount:</span>
-                  <span className="font-medium">
-                    {watchedAmount
-                      ? `$${formatAmount(watchedAmount)}`
-                      : "Not set"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">From:</span>
-                  <span className="font-medium">
-                    {chainId ? getChainName(chainId) : "Unknown Chain"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">To:</span>
-                  <span className="font-medium">Hyperliquid</span>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </form>

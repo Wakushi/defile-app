@@ -62,8 +62,6 @@ export function Header() {
     )
   }
 
-  console.log("chainId: ", chainId)
-
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b bg-white/50 backdrop-blur-sm dark:bg-gray-950">
       <nav>
@@ -122,7 +120,7 @@ export function Header() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={refreshAllBalances}
+                      onClick={() => refreshAllBalances(chainId as number)}
                       disabled={isLoadingBalance || isLoadingHyperliquid}
                       className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
                     >

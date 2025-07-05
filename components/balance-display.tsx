@@ -13,8 +13,8 @@ export default function BalanceDisplay({
   balance: string
   hyperliquidBalance: string
   sourceChain: SupportedChainId
-  onRefresh: () => void
-  onRefreshHyperliquid: () => void
+  onRefresh: (chainId: SupportedChainId) => void
+  onRefreshHyperliquid: (chainId: SupportedChainId) => void
 }) {
   const formatBalance = (balance: string) => {
     const num = parseFloat(balance)
@@ -57,7 +57,7 @@ export default function BalanceDisplay({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={onRefresh}
+                  onClick={() => onRefresh(sourceChain)}
                   className="h-8 w-8 p-0 hover:bg-blue-100 dark:hover:bg-blue-900/30"
                 >
                   <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -94,7 +94,7 @@ export default function BalanceDisplay({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={onRefreshHyperliquid}
+                  onClick={() => onRefreshHyperliquid(sourceChain)}
                   className="h-8 w-8 p-0 hover:bg-green-100 dark:hover:bg-green-900/30"
                 >
                   <RefreshCw className="h-4 w-4 text-green-600 dark:text-green-400" />

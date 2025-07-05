@@ -8,11 +8,14 @@ import {
   useEffect,
 } from "react"
 import { useWallets } from "@privy-io/react-auth"
-import { Address, isAddress } from "viem"
-import { SupportedChainId } from "@/lib/chains"
+import { Address, formatUnits, isAddress } from "viem"
+import { CHAIN_IDS_TO_USDC_ADDRESSES, SupportedChainId } from "@/lib/chains"
 import { HyperliquidMarginInfo } from "@/types/hyperliquid.type"
-import { useCrossChainTransfer } from "@/hooks/use-cross-chain-transfer"
-import { HYPERLIQUID_TESTNET_API_URL } from "@/lib/constants"
+import {
+  DEFAULT_USDC_DECIMALS,
+  HYPERLIQUID_TESTNET_API_URL,
+} from "@/lib/constants"
+import { getPublicClient } from "@/lib/chain-utils"
 
 interface UserState {
   address: Address | undefined
@@ -21,7 +24,7 @@ interface UserState {
   hyperliquidBalance: string
   isLoadingBalance: boolean
   isLoadingHyperliquid: boolean
-  refreshAllBalances: () => Promise<void>
+  refreshAllBalances: (chainId: SupportedChainId) => Promise<void>
 }
 
 interface UserStoreProviderProps {
@@ -32,7 +35,6 @@ const UserContext = createContext<UserState | undefined>(undefined)
 
 export function UserStoreProvider({ children }: UserStoreProviderProps) {
   const { wallets } = useWallets()
-  const { getBalance } = useCrossChainTransfer()
 
   const [account, setAccount] = useState<Address | undefined>()
   const [sourceChain, setSourceChain] = useState<SupportedChainId | undefined>()
@@ -46,20 +48,23 @@ export function UserStoreProvider({ children }: UserStoreProviderProps) {
   useEffect(() => {
     if (!wallets || !wallets.length || !wallets[0]) return
 
-    const wallet = wallets[0]
-    const chainId = wallet.chainId.split(":")[1]
+    const injected = wallets.find(
+      (wallet) => wallet.connectorType === "injected"
+    )
+    const wallet = injected || wallets[0]
+    const chainId = Number(wallet.chainId.split(":")[1])
 
-    setSourceChain(Number(chainId))
+    setSourceChain(chainId)
     setAccount(wallet.address as Address)
-    refreshAllBalances()
+    refreshAllBalances(chainId)
   }, [wallets])
 
-  const fetchBalance = async () => {
-    if (!sourceChain) return
+  const fetchBalance = async (chainId: SupportedChainId) => {
+    if (!chainId || !wallets || !wallets.length || !wallets[0]) return
 
     setIsLoadingBalance(true)
     try {
-      const balance = await getBalance(sourceChain)
+      const balance = await getBalance(chainId)
       setBalance(balance)
     } catch (error) {
       console.error("Failed to get balance:", error)
@@ -95,8 +100,36 @@ export function UserStoreProvider({ children }: UserStoreProviderProps) {
     }
   }
 
-  const refreshAllBalances = async () => {
-    await Promise.all([fetchBalance(), fetchHyperliquidBalance()])
+  const refreshAllBalances = async (chainId: SupportedChainId) => {
+    await Promise.all([fetchBalance(chainId), fetchHyperliquidBalance()])
+  }
+
+  const getBalance = async (chainId: SupportedChainId) => {
+    if (!account) {
+      return "0"
+    }
+
+    const publicClient = getPublicClient(chainId)
+
+    const balance = await publicClient.readContract({
+      address: CHAIN_IDS_TO_USDC_ADDRESSES[chainId] as `0x${string}`,
+      abi: [
+        {
+          constant: true,
+          inputs: [{ name: "_owner", type: "address" }],
+          name: "balanceOf",
+          outputs: [{ name: "balance", type: "uint256" }],
+          payable: false,
+          stateMutability: "view",
+          type: "function",
+        },
+      ],
+      functionName: "balanceOf",
+      args: [account],
+    })
+
+    const formattedBalance = formatUnits(balance, DEFAULT_USDC_DECIMALS)
+    return formattedBalance
   }
 
   const userState: UserState = {

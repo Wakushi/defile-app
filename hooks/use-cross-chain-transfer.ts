@@ -1,36 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import {
   createWalletClient,
   http,
-  encodeFunctionData,
-  HttpTransport,
-  type Chain,
-  type Account,
-  type WalletClient,
   type Hex,
   TransactionExecutionError,
   parseUnits,
   createPublicClient,
   formatUnits,
   parseEther,
+  Address,
+  custom,
 } from "viem"
-import { privateKeyToAccount, nonceManager } from "viem/accounts"
 import axios from "axios"
-import {
-  sepolia,
-  avalancheFuji,
-  baseSepolia,
-  sonicBlazeTestnet,
-  lineaSepolia,
-  arbitrumSepolia,
-  worldchainSepolia,
-  optimismSepolia,
-  unichainSepolia,
-  polygonAmoy,
-} from "viem/chains"
-import { defineChain } from "viem"
+import { switchChain } from "viem/actions"
 
 import {
   SupportedChainId,
@@ -42,29 +26,7 @@ import {
 } from "@/lib/chains"
 import { DEFAULT_USDC_DECIMALS } from "@/lib/constants"
 import { CircleAttestation } from "@/types/circle.type"
-
-// Custom Codex chain definition with Thirdweb RPC
-const codexTestnet = defineChain({
-  id: 812242,
-  name: "Codex Testnet",
-  nativeCurrency: {
-    decimals: 18,
-    name: "Codex",
-    symbol: "CDX",
-  },
-  rpcUrls: {
-    default: {
-      http: ["https://812242.rpc.thirdweb.com"],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: "Codex Explorer",
-      url: "https://explorer.codex-stg.xyz/",
-    },
-  },
-  testnet: true,
-})
+import { chains, getPublicClient, getWalletClient } from "@/lib/chain-utils"
 
 export type TransferStep =
   | "idle"
@@ -74,20 +36,6 @@ export type TransferStep =
   | "minting"
   | "completed"
   | "error"
-
-const chains = {
-  [SupportedChainId.ETH_SEPOLIA]: sepolia,
-  [SupportedChainId.AVAX_FUJI]: avalancheFuji,
-  [SupportedChainId.BASE_SEPOLIA]: baseSepolia,
-  [SupportedChainId.SONIC_BLAZE]: sonicBlazeTestnet,
-  [SupportedChainId.LINEA_SEPOLIA]: lineaSepolia,
-  [SupportedChainId.ARBITRUM_SEPOLIA]: arbitrumSepolia,
-  [SupportedChainId.WORLDCHAIN_SEPOLIA]: worldchainSepolia,
-  [SupportedChainId.OPTIMISM_SEPOLIA]: optimismSepolia,
-  [SupportedChainId.CODEX_TESTNET]: codexTestnet,
-  [SupportedChainId.UNICHAIN_SEPOLIA]: unichainSepolia,
-  [SupportedChainId.POLYGON_AMOY]: polygonAmoy,
-}
 
 export function useCrossChainTransfer() {
   const [currentStep, setCurrentStep] = useState<TransferStep>("idle")
@@ -100,107 +48,73 @@ export function useCrossChainTransfer() {
       `[${new Date().toLocaleTimeString()}] ${message}`,
     ])
 
-  // Utility function to get the appropriate private key for a chain
-  const getPrivateKeyForChain = (chainId: number): string => {
-    const evmKey =
-      process.env.NEXT_PUBLIC_EVM_PRIVATE_KEY ||
-      process.env.NEXT_PUBLIC_PRIVATE_KEY
-
-    if (!evmKey) {
-      throw new Error(
-        "EVM private key not found. Please set NEXT_PUBLIC_EVM_PRIVATE_KEY in your environment."
-      )
-    }
-
-    return evmKey
-  }
-
-  const getPublicClient = (chainId: SupportedChainId) => {
-    return createPublicClient({
-      chain: chains[chainId as keyof typeof chains],
-      transport: http(),
-    })
-  }
-
   const getClients = (chainId: SupportedChainId) => {
-    const privateKey = getPrivateKeyForChain(chainId)
-
-    const account = privateKeyToAccount(`0x${privateKey.replace(/^0x/, "")}`, {
-      nonceManager,
-    })
     return createWalletClient({
       chain: chains[chainId as keyof typeof chains],
       transport: http(),
-      account,
     })
   }
 
-  const getBalance = async (chainId: SupportedChainId) => {
-    return getEVMBalance(chainId)
-  }
-
-  const getEVMBalance = async (chainId: SupportedChainId) => {
-    const publicClient = createPublicClient({
-      chain: chains[chainId as keyof typeof chains],
-      transport: http(),
-    })
-    const privateKey = getPrivateKeyForChain(chainId)
-    const account = privateKeyToAccount(`0x${privateKey.replace(/^0x/, "")}`, {
-      nonceManager,
-    })
-
-    const balance = await publicClient.readContract({
-      address: CHAIN_IDS_TO_USDC_ADDRESSES[chainId] as `0x${string}`,
-      abi: [
-        {
-          constant: true,
-          inputs: [{ name: "_owner", type: "address" }],
-          name: "balanceOf",
-          outputs: [{ name: "balance", type: "uint256" }],
-          payable: false,
-          stateMutability: "view",
-          type: "function",
-        },
-      ],
-      functionName: "balanceOf",
-      args: [account.address],
-    })
-
-    const formattedBalance = formatUnits(balance, DEFAULT_USDC_DECIMALS)
-    return formattedBalance
-  }
-
-  // EVM functions (existing)
   const approveUSDC = async (
-    client: WalletClient<HttpTransport, Chain, Account>,
-    sourceChainId: number
+    address: Address,
+    amount: bigint,
+    sourceChainId: SupportedChainId
   ) => {
     setCurrentStep("approving")
-    addLog("Approving USDC transfer...")
+    addLog("Checking USDC allowance...")
+
+    const spender = CHAIN_IDS_TO_TOKEN_MESSENGER[sourceChainId] as `0x${string}`
+    const usdcAddress = CHAIN_IDS_TO_USDC_ADDRESSES[
+      sourceChainId
+    ] as `0x${string}`
 
     try {
-      const tx = await client.sendTransaction({
-        to: CHAIN_IDS_TO_USDC_ADDRESSES[sourceChainId] as `0x${string}`,
-        data: encodeFunctionData({
-          abi: [
-            {
-              type: "function",
-              name: "approve",
-              stateMutability: "nonpayable",
-              inputs: [
-                { name: "spender", type: "address" },
-                { name: "amount", type: "uint256" },
-              ],
-              outputs: [{ name: "", type: "bool" }],
-            },
-          ],
-          functionName: "approve",
-          args: [
-            CHAIN_IDS_TO_TOKEN_MESSENGER[sourceChainId] as `0x${string}`,
-            10000000000n,
-          ],
-        }),
+      const publicClient = getPublicClient(sourceChainId)
+      const walletClient = getWalletClient(sourceChainId)
+
+      const allowance = await publicClient.readContract({
+        address: usdcAddress,
+        abi: [
+          {
+            name: "allowance",
+            type: "function",
+            stateMutability: "view",
+            inputs: [
+              { name: "owner", type: "address" },
+              { name: "spender", type: "address" },
+            ],
+            outputs: [{ name: "", type: "uint256" }],
+          },
+        ],
+        functionName: "allowance",
+        args: [address, spender],
       })
+
+      if (BigInt(allowance) >= amount) {
+        addLog("USDC allowance already sufficient. Skipping approval.")
+        return null
+      }
+
+      const { request } = await publicClient.simulateContract({
+        account: address,
+        address: usdcAddress,
+        abi: [
+          {
+            type: "function",
+            name: "approve",
+            stateMutability: "nonpayable",
+            inputs: [
+              { name: "spender", type: "address" },
+              { name: "amount", type: "uint256" },
+            ],
+            outputs: [{ name: "", type: "bool" }],
+          },
+        ],
+        functionName: "approve",
+        args: [spender, amount],
+      })
+
+      const tx = await walletClient.writeContract(request)
 
       addLog(`USDC Approval Tx: ${tx}`)
       return tx
@@ -211,10 +125,10 @@ export function useCrossChainTransfer() {
   }
 
   const burnUSDC = async (
-    client: WalletClient<HttpTransport, Chain, Account>,
-    sourceChainId: number,
+    address: Address,
+    sourceChainId: SupportedChainId,
     amount: bigint,
-    destinationChainId: number,
+    destinationChainId: SupportedChainId,
     destinationAddress: string,
     transferType: "fast" | "standard"
   ) => {
@@ -225,43 +139,46 @@ export function useCrossChainTransfer() {
       const finalityThreshold = transferType === "fast" ? 1000 : 2000
       const maxFee = amount - 1n
 
-      // Handle Solana destination addresses differently
       let mintRecipient: string = `0x${destinationAddress
         .replace(/^0x/, "")
         .padStart(64, "0")}`
 
-      const tx = await client.sendTransaction({
-        to: CHAIN_IDS_TO_TOKEN_MESSENGER[sourceChainId] as `0x${string}`,
-        data: encodeFunctionData({
-          abi: [
-            {
-              type: "function",
-              name: "depositForBurn",
-              stateMutability: "nonpayable",
-              inputs: [
-                { name: "amount", type: "uint256" },
-                { name: "destinationDomain", type: "uint32" },
-                { name: "mintRecipient", type: "bytes32" },
-                { name: "burnToken", type: "address" },
-                { name: "hookData", type: "bytes32" },
-                { name: "maxFee", type: "uint256" },
-                { name: "finalityThreshold", type: "uint32" },
-              ],
-              outputs: [],
-            },
-          ],
-          functionName: "depositForBurn",
-          args: [
-            amount,
-            DESTINATION_DOMAINS[destinationChainId],
-            mintRecipient as Hex,
-            CHAIN_IDS_TO_USDC_ADDRESSES[sourceChainId] as `0x${string}`,
-            "0x0000000000000000000000000000000000000000000000000000000000000000",
-            maxFee,
-            finalityThreshold,
-          ],
-        }),
+      const publicClient = getPublicClient(sourceChainId)
+      const walletClient = getWalletClient(sourceChainId)
+
+      const { request } = await publicClient.simulateContract({
+        account: address,
+        address: CHAIN_IDS_TO_TOKEN_MESSENGER[sourceChainId] as `0x${string}`,
+        abi: [
+          {
+            type: "function",
+            name: "depositForBurn",
+            stateMutability: "nonpayable",
+            inputs: [
+              { name: "amount", type: "uint256" },
+              { name: "destinationDomain", type: "uint32" },
+              { name: "mintRecipient", type: "bytes32" },
+              { name: "burnToken", type: "address" },
+              { name: "hookData", type: "bytes32" },
+              { name: "maxFee", type: "uint256" },
+              { name: "finalityThreshold", type: "uint32" },
+            ],
+            outputs: [],
+          },
+        ],
+        functionName: "depositForBurn",
+        args: [
+          amount,
+          DESTINATION_DOMAINS[destinationChainId],
+          mintRecipient as Hex,
+          CHAIN_IDS_TO_USDC_ADDRESSES[sourceChainId] as `0x${string}`,
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+          maxFee,
+          finalityThreshold,
+        ],
       })
+
+      const tx = await walletClient.writeContract(request)
 
       addLog(`Burn Tx: ${tx}`)
       return tx
@@ -273,7 +190,7 @@ export function useCrossChainTransfer() {
 
   const retrieveAttestation = async (
     transactionHash: string,
-    sourceChainId: number
+    sourceChainId: SupportedChainId
   ) => {
     setCurrentStep("waiting-attestation")
     addLog("Retrieving attestation...")
@@ -306,7 +223,8 @@ export function useCrossChainTransfer() {
   }
 
   const mintUSDC = async (
-    client: WalletClient<HttpTransport, Chain, Account>,
+    from: Address,
+    sourceChainId: number,
     destinationChainId: number,
     attestation: CircleAttestation
   ) => {
@@ -317,11 +235,8 @@ export function useCrossChainTransfer() {
 
     while (retries < MAX_RETRIES) {
       try {
-        const publicClient = createPublicClient({
-          chain: chains[destinationChainId as keyof typeof chains],
-          transport: http(),
-        })
-        const feeData = await publicClient.estimateFeesPerGas()
+        const publicClient = getPublicClient(destinationChainId)
+
         const contractConfig = {
           address: CHAIN_IDS_TO_MESSAGE_TRANSMITTER[
             destinationChainId
@@ -340,32 +255,38 @@ export function useCrossChainTransfer() {
           ] as const,
         }
 
-        // Estimate gas with buffer
         const gasEstimate = await publicClient.estimateContractGas({
           ...contractConfig,
           functionName: "receiveMessage",
           args: [attestation.message, attestation.attestation],
-          account: client.account,
+          account: from,
         })
 
         // Add 20% buffer to gas estimate
         const gasWithBuffer = (gasEstimate * 120n) / 100n
         addLog(`Gas Used: ${formatUnits(gasWithBuffer, 9)} Gwei`)
 
-        const tx = await client.sendTransaction({
-          to: contractConfig.address,
-          data: encodeFunctionData({
-            ...contractConfig,
-            functionName: "receiveMessage",
-            args: [attestation.message, attestation.attestation],
-          }),
-          gas: gasWithBuffer,
-          maxFeePerGas: feeData.maxFeePerGas,
-          maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+        const walletClient = getWalletClient(destinationChainId)
+
+        await switchChain(walletClient, {
+          id: destinationChainId,
         })
+
+        const { request } = await publicClient.simulateContract({
+          ...contractConfig,
+          functionName: "receiveMessage",
+          args: [attestation.message, attestation.attestation],
+          account: from,
+        })
+
+        const tx = await walletClient.writeContract(request)
 
         addLog(`Minted USDC on Arbitrum! Tx: ${tx}`)
         setCurrentStep("completed")
+
+        await switchChain(walletClient, {
+          id: sourceChainId,
+        })
         break
       } catch (err) {
         if (err instanceof TransactionExecutionError && retries < MAX_RETRIES) {
@@ -379,64 +300,61 @@ export function useCrossChainTransfer() {
     }
   }
 
-  const executeTransfer = async (
-    sourceChainId: number,
-    destinationChainId: number,
-    amount: string,
+  const executeTransfer = async ({
+    from,
+    sourceChainId,
+    destinationChainId,
+    amount,
+    transferType,
+  }: {
+    from: Address
+    sourceChainId: number
+    destinationChainId: number
+    amount: string
     transferType: "fast" | "standard"
-  ) => {
+  }) => {
     try {
+      if (!from) {
+        throw new Error("No from address provided")
+      }
+
       const numericAmount = parseUnits(amount, DEFAULT_USDC_DECIMALS)
-
-      let sourceClient: any, destinationClient: any, defaultDestination: string
-
-      sourceClient = getClients(sourceChainId)
-      destinationClient = getClients(destinationChainId)
-
-      const destinationPrivateKey = getPrivateKeyForChain(destinationChainId)
-      const account = privateKeyToAccount(
-        `0x${destinationPrivateKey.replace(/^0x/, "")}`
-      )
-      defaultDestination = account.address
 
       const checkNativeBalance = async (chainId: SupportedChainId) => {
         const publicClient = createPublicClient({
           chain: chains[chainId as keyof typeof chains],
           transport: http(),
         })
-        const privateKey = getPrivateKeyForChain(chainId)
-        const account = privateKeyToAccount(
-          `0x${privateKey.replace(/^0x/, "")}`
-        )
         const balance = await publicClient.getBalance({
-          address: account.address,
+          address: from,
         })
         return balance
       }
 
-      await approveUSDC(sourceClient, sourceChainId)
+      await approveUSDC(from, numericAmount, sourceChainId)
 
       let burnTx: string
 
       burnTx = await burnUSDC(
-        sourceClient,
+        from,
         sourceChainId,
         numericAmount,
         destinationChainId,
-        defaultDestination,
+        from,
         transferType
       )
 
       const attestation = await retrieveAttestation(burnTx, sourceChainId)
 
-      const minBalance = parseEther("0.01") // 0.01 native token
+      const minBalance = parseEther("0.01")
 
       const balance = await checkNativeBalance(destinationChainId)
+
       if (balance < minBalance) {
         throw new Error("Insufficient native token for gas fees")
       }
 
-      await mintUSDC(destinationClient, destinationChainId, attestation)
+      await mintUSDC(from, sourceChainId, destinationChainId, attestation)
     } catch (error) {
       setCurrentStep("error")
       addLog(
@@ -456,8 +374,6 @@ export function useCrossChainTransfer() {
     logs,
     error,
     executeTransfer,
-    getBalance,
-    getPublicClient,
     getClients,
     reset,
   }
