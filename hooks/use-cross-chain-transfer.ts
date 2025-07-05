@@ -41,6 +41,8 @@ import {
   IRIS_API_URL,
 } from "@/lib/chains"
 import { DEFAULT_USDC_DECIMALS } from "@/lib/constants"
+import { CircleAttestation } from "@/types/circle.type"
+import { CIRCLE_ATTESTATION } from "@/lib/attestations"
 
 // Custom Codex chain definition with Thirdweb RPC
 const codexTestnet = defineChain({
@@ -307,7 +309,7 @@ export function useCrossChainTransfer() {
   const mintUSDC = async (
     client: WalletClient<HttpTransport, Chain, Account>,
     destinationChainId: number,
-    attestation: any
+    attestation: CircleAttestation
   ) => {
     const MAX_RETRIES = 3
     let retries = 0
@@ -363,7 +365,7 @@ export function useCrossChainTransfer() {
           maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
         })
 
-        addLog(`Mint Tx: ${tx}`)
+        addLog(`Minted USDC on Arbitrum! Tx: ${tx}`)
         setCurrentStep("completed")
         break
       } catch (err) {
@@ -389,21 +391,15 @@ export function useCrossChainTransfer() {
 
       let sourceClient: any, destinationClient: any, defaultDestination: string
 
-      // Get source client
       sourceClient = getClients(sourceChainId)
-
-      // Get destination client
       destinationClient = getClients(destinationChainId)
 
-      // For cross-chain transfers, destination address should be derived from destination chain's private key
-      // Destination is EVM, so get EVM address
       const destinationPrivateKey = getPrivateKeyForChain(destinationChainId)
       const account = privateKeyToAccount(
         `0x${destinationPrivateKey.replace(/^0x/, "")}`
       )
       defaultDestination = account.address
 
-      // Check native balance for destination chain
       const checkNativeBalance = async (chainId: SupportedChainId) => {
         const publicClient = createPublicClient({
           chain: chains[chainId as keyof typeof chains],
@@ -419,10 +415,8 @@ export function useCrossChainTransfer() {
         return balance
       }
 
-      // Execute approve step
       await approveUSDC(sourceClient, sourceChainId)
 
-      // Execute burn step
       let burnTx: string
 
       burnTx = await burnUSDC(
@@ -434,10 +428,8 @@ export function useCrossChainTransfer() {
         transferType
       )
 
-      // Retrieve attestation
       const attestation = await retrieveAttestation(burnTx, sourceChainId)
 
-      // Check destination chain balance
       const minBalance = parseEther("0.01") // 0.01 native token
 
       const balance = await checkNativeBalance(destinationChainId)
@@ -445,7 +437,6 @@ export function useCrossChainTransfer() {
         throw new Error("Insufficient native token for gas fees")
       }
 
-      // Execute mint step
       await mintUSDC(destinationClient, destinationChainId, attestation)
     } catch (error) {
       setCurrentStep("error")

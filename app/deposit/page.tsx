@@ -79,7 +79,7 @@ export default function FundPage() {
     // 1.SEND USDC FROM SOURCE CHAIN TO ARBITRUM
 
     try {
-      const result = await executeTransfer(
+      await executeTransfer(
         sourceChain,
         SupportedChainId.ARBITRUM_SEPOLIA,
         data.amount.toString(),
@@ -93,6 +93,8 @@ export default function FundPage() {
     }
 
     // 2.SEND USDC FROM ARBITRUM TO HYPERLIQUID
+    setTransferStatus("Bridging USDC to Hyperliquid...")
+
     try {
       const tx = await bridgeUSDCToHyperliquid(data.amount.toString())
 
@@ -156,10 +158,10 @@ export default function FundPage() {
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Fund Trading Account
+          Deposit USDC to Hyperliquid
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Transfer USDC from your wallet to Hyperliquid for trading
+          Transfer USDC from your wallet to Hyperliquid for trading.
         </p>
       </div>
 
@@ -173,16 +175,6 @@ export default function FundPage() {
           onRefreshHyperliquid={fetchHyperliquidBalance}
         />
       </div>
-
-      <Button
-        className="w-full mb-4"
-        onClick={(e) => {
-          e.preventDefault()
-          bridgeUSDCToHyperliquid("10")
-        }}
-      >
-        Bridge USDC to Hyperliquid
-      </Button>
 
       <FormProvider {...formMethods}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
