@@ -33,7 +33,7 @@ import { useUser } from "@/stores/user.store"
 import { useHyperliquid } from "@/hooks/use-hyperliquid"
 import { approveAgent } from "@/lib/hyperliquid-utils"
 import { SupportedChainId } from "@/lib/chains"
-import { PerpMetadata } from "@/types/hyperliquid.type"
+import { OpenOrdersTable } from "@/components/open-orders-table"
 
 const tradeFormSchema = z.object({
   asset: z.string().min(1, "Asset is required"),
@@ -45,9 +45,15 @@ const tradeFormSchema = z.object({
 type TradeFormData = z.infer<typeof tradeFormSchema>
 
 export default function TradingPage() {
-  const { address } = useUser()
-  const { openPositions, isLoadingOpenPositions, perpsAssets } =
-    useHyperliquid(address)
+  const { address, refreshAllBalances, chainId } = useUser()
+  const {
+    openPositions,
+    isLoadingOpenPositions,
+    perpsAssets,
+    refreshAll,
+    orders,
+    isLoadingOrders,
+  } = useHyperliquid(address)
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
 
@@ -74,11 +80,15 @@ export default function TradingPage() {
         throw new Error("Wallet not connected")
       }
 
+      toast.info("Approving agent...")
+
       await approveAgent({
         account: address,
         chainId: SupportedChainId.ARBITRUM_SEPOLIA,
         isMainnet: false,
       })
+
+      toast.info("Opening position...")
 
       const response = await fetch("/api/hyperliquid/position", {
         method: "POST",
@@ -91,8 +101,60 @@ export default function TradingPage() {
           side: data.side,
           user: address,
           testnet: true,
+          type: "open",
         }),
       })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error)
+      }
+
+      const { success, message } = await response.json()
+
+      if (success) {
+        toast.success(message)
+      } else {
+        toast.error(message)
+      }
+
+      await refreshAll()
+      await refreshAllBalances(chainId as SupportedChainId)
+    } catch (error) {
+      console.error("Error opening position:", error)
+      toast.error(typeof error === "string" ? error : "Failed to open position")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function onClosePosition(asset: string, size: string): Promise<void> {
+    setIsSubmitting(true)
+
+    try {
+      if (!address) {
+        throw new Error("Wallet not connected")
+      }
+
+      const response = await fetch("/api/hyperliquid/position", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          asset,
+          sizeUsd: Number(size),
+          side: "sell",
+          user: address,
+          testnet: true,
+          type: "close",
+        }),
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error)
+      }
 
       const { success, message } = await response.json()
 
@@ -102,8 +164,10 @@ export default function TradingPage() {
         toast.error(message)
       }
     } catch (error) {
-      console.error("Error opening position:", error)
-      toast.error("Failed to open position")
+      console.error("Error closing position:", error)
+      toast.error(
+        typeof error === "string" ? error : "Failed to close position"
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -111,17 +175,6 @@ export default function TradingPage() {
 
   function formatAssetName(asset: string): string {
     return asset.replace("PERP", "USD")
-  }
-
-  async function getAssetData(asset: string): Promise<{
-    marketPrice: number
-    perpMetadata: PerpMetadata
-    assetIndex: number
-  }> {
-    const response = await fetch(`/api/hyperliquid/assets/${asset}`)
-    const { data } = await response.json()
-
-    return data
   }
 
   return (
@@ -136,10 +189,18 @@ export default function TradingPage() {
       </div>
 
       <div className="flex gap-4">
-        <div className="w-[80%]">
+        <div className="w-[80%] flex flex-col gap-4">
           <OpenPositionsTable
             positions={openPositions}
             isLoading={isLoadingOpenPositions}
+            onClosePosition={onClosePosition}
+          />
+          <OpenOrdersTable
+            orders={orders}
+            isLoading={isLoadingOrders}
+            onCancelOrder={() => {
+              console.log("cancel order")
+            }}
           />
         </div>
         <div className="w-[20%]">

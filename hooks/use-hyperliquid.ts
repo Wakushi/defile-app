@@ -5,7 +5,7 @@ import { HYPERLIQUID_TESTNET_API_URL } from "@/lib/constants"
 import { AssetPosition, HyperliquidMarginInfo } from "@/types/hyperliquid.type"
 
 export function useHyperliquid(user: Address | undefined) {
-  const [orders, setOrders] = useState<UserOpenOrders[]>([])
+  const [orders, setOrders] = useState<UserOpenOrders>([])
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
 
   const [fills, setFills] = useState<UserFills>([])
@@ -20,14 +20,16 @@ export function useHyperliquid(user: Address | undefined) {
   useEffect(() => {
     if (!user || !isAddress(user)) return
 
-    fetchOrders()
-    fetchFills()
-    fetchOpenPositions()
+    refreshAll()
   }, [user])
 
   useEffect(() => {
     fetchPerpsAssets()
   }, [])
+
+  const refreshAll = async () => {
+    await Promise.all([fetchOrders(), fetchFills(), fetchOpenPositions()])
+  }
 
   const fetchOpenPositions = async () => {
     setIsLoadingOpenPositions(true)
@@ -100,6 +102,7 @@ export function useHyperliquid(user: Address | undefined) {
     fills,
     perpsAssets,
     openPositions,
+    refreshAll,
     isLoadingOrders,
     isLoadingFills,
     isLoadingOpenPositions,

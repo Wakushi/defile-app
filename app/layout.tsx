@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "DeFile - Omnichain Trading",
+  title: "HyPortal- Omnichain Trading",
   description:
     "Trade perpetuals on Hyperliquid from any chain with seamless cross-chain UX",
 }

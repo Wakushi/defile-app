@@ -21,10 +21,17 @@ interface UserState {
   address: Address | undefined
   chainId: SupportedChainId | undefined
   balance: string
-  hyperliquidBalance: string
+  hyperliquidBalance: MarginSummary
   isLoadingBalance: boolean
   isLoadingHyperliquid: boolean
   refreshAllBalances: (chainId: SupportedChainId) => Promise<void>
+}
+
+interface MarginSummary {
+  accountValue: string
+  totalNtlPos: string
+  totalRawUsd: string
+  totalMarginUsed: string
 }
 
 interface UserStoreProviderProps {
@@ -39,7 +46,12 @@ export function UserStoreProvider({ children }: UserStoreProviderProps) {
   const [account, setAccount] = useState<Address | undefined>()
   const [sourceChain, setSourceChain] = useState<SupportedChainId | undefined>()
   const [balance, setBalance] = useState<string>("0")
-  const [hyperliquidBalance, setHyperliquidBalance] = useState<string>("0")
+  const [hyperliquidBalance, setHyperliquidBalance] = useState<MarginSummary>({
+    accountValue: "0",
+    totalNtlPos: "0",
+    totalRawUsd: "0",
+    totalMarginUsed: "0",
+  })
 
   const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false)
   const [isLoadingHyperliquid, setIsLoadingHyperliquid] =
@@ -91,10 +103,15 @@ export function UserStoreProvider({ children }: UserStoreProviderProps) {
       })
 
       const data: HyperliquidMarginInfo = await response.json()
-      setHyperliquidBalance(data.marginSummary.accountValue)
+      setHyperliquidBalance(data.marginSummary)
     } catch (error) {
       console.error("Failed to get Hyperliquid balance:", error)
-      setHyperliquidBalance("0")
+      setHyperliquidBalance({
+        accountValue: "0",
+        totalNtlPos: "0",
+        totalRawUsd: "0",
+        totalMarginUsed: "0",
+      })
     } finally {
       setIsLoadingHyperliquid(false)
     }

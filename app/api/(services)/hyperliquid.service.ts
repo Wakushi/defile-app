@@ -66,6 +66,7 @@ export class HyperliquidService {
     sizeUsd,
     side,
     price,
+    type,
   }: {
     account: Address
     testnet: boolean
@@ -74,6 +75,7 @@ export class HyperliquidService {
     sizeUsd: number
     side: "buy" | "sell"
     price?: number
+    type: "open" | "close"
   }) {
     const hyperliquid = new Hyperliquid({
       testnet,
@@ -100,7 +102,7 @@ export class HyperliquidService {
         sz: size,
         limit_px,
         order_type: { limit: { tif: "Gtc" } },
-        reduce_only: false,
+        reduce_only: type === "close",
       })
 
     const status = response.response.data.statuses[0]
@@ -110,6 +112,34 @@ export class HyperliquidService {
     }
 
     return status
+  }
+
+  async closeMarketPosition({
+    account,
+    testnet,
+    privateKey,
+    asset,
+    orderId,
+  }: {
+    account: Address
+    testnet: boolean
+    privateKey: string
+    asset: string
+    orderId: number
+  }) {
+    const hyperliquid = new Hyperliquid({
+      testnet,
+      privateKey,
+      walletAddress: account,
+      enableWs: false,
+    })
+
+    const response = await hyperliquid.exchange.cancelOrder({
+      coin: asset,
+      o: orderId,
+    })
+
+    return response
   }
 
   async updateLeverage({

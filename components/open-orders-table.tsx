@@ -25,35 +25,35 @@ import {
   TrendingUp,
   TrendingDown,
   X,
+  Clock,
 } from "lucide-react"
-import { AssetPosition } from "@/types/hyperliquid.type"
+import { UserOpenOrder } from "hyperliquid"
 
-interface OpenPositionsTableProps {
-  positions: AssetPosition[]
+interface OpenOrdersTableProps {
+  orders: UserOpenOrder[]
   isLoading?: boolean
-  onClosePosition: (coin: string, szi: string) => void
+  onCancelOrder: (coin: string, orderId: number) => void
 }
 
 type SortField =
   | "coin"
-  | "szi"
-  | "entryPx"
-  | "positionValue"
-  | "unrealizedPnl"
-  | "returnOnEquity"
-  | "marginUsed"
-  | "leverage"
+  | "side"
+  | "size"
+  | "price"
+  | "orderValue"
+  | "orderId"
+  | "timestamp"
 type SortDirection = "asc" | "desc"
 
-export function OpenPositionsTable({
-  positions,
+export function OpenOrdersTable({
+  orders,
   isLoading = false,
-  onClosePosition,
-}: OpenPositionsTableProps) {
+  onCancelOrder,
+}: OpenOrdersTableProps) {
   const [sortField, setSortField] = useState<SortField>("coin")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const [coinFilter, setCoinFilter] = useState<string>("")
-  const [leverageTypeFilter, setLeverageTypeFilter] = useState<string>("")
+  const [sideFilter, setSideFilter] = useState<string>("")
 
   const formatNumber = (value: string, decimals: number = 2) => {
     const num = parseFloat(value)
@@ -73,37 +73,16 @@ export function OpenPositionsTable({
     }).format(num)
   }
 
-  const formatPercentage = (value: string) => {
-    const num = parseFloat(value) * 100
-    return `${num >= 0 ? "+" : ""}${num.toFixed(2)}%`
+  const formatTimestamp = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString()
   }
 
-  const formatPnl = (pnl: string) => {
-    const num = parseFloat(pnl)
-    const color = num >= 0 ? "text-green-600" : "text-red-600"
-    const sign = num >= 0 ? "+" : ""
-    return (
-      <span className={color}>
-        {sign}
-        {formatCurrency(pnl)}
-      </span>
-    )
+  const getOrderSide = (side: string) => {
+    return side === "buy" ? "Buy" : "Sell"
   }
 
-  const formatReturnOnEquity = (roe: string) => {
-    const num = parseFloat(roe)
-    const color = num >= 0 ? "text-green-600" : "text-red-600"
-    return <span className={color}>{formatPercentage(roe)}</span>
-  }
-
-  const getPositionSide = (szi: string) => {
-    const size = parseFloat(szi)
-    return size > 0 ? "Long" : "Short"
-  }
-
-  const getPositionSideColor = (szi: string) => {
-    const size = parseFloat(szi)
-    return size > 0 ? "text-green-600" : "text-red-600"
+  const getOrderSideColor = (side: string) => {
+    return side === "buy" ? "text-green-600" : "text-red-600"
   }
 
   const handleSort = (field: SortField) => {
@@ -126,15 +105,18 @@ export function OpenPositionsTable({
     )
   }
 
-  const filteredAndSortedPositions = useMemo(() => {
-    let filtered = positions.filter((position) => {
+  const filteredAndSortedOrders = useMemo(() => {
+    if (!orders) return []
+
+    let filtered = orders.filter((order) => {
       const matchesCoin =
         coinFilter === "" ||
-        position.position.coin.toLowerCase().includes(coinFilter.toLowerCase())
-      const matchesLeverageType =
-        leverageTypeFilter === "" ||
-        position.position.leverage.type === leverageTypeFilter
-      return matchesCoin && matchesLeverageType
+        order.coin.toLowerCase().includes(coinFilter.toLowerCase())
+      const matchesSide =
+        sideFilter === "" ||
+        (sideFilter === "buy" && order.side === "buy") ||
+        (sideFilter === "sell" && order.side === "sell")
+      return matchesCoin && matchesSide
     })
 
     filtered.sort((a, b) => {
@@ -143,40 +125,36 @@ export function OpenPositionsTable({
 
       switch (sortField) {
         case "coin":
-          aValue = a.position.coin.toLowerCase()
-          bValue = b.position.coin.toLowerCase()
+          aValue = a.coin.toLowerCase()
+          bValue = b.coin.toLowerCase()
           break
-        case "szi":
-          aValue = Math.abs(parseFloat(a.position.szi))
-          bValue = Math.abs(parseFloat(b.position.szi))
+        case "side":
+          aValue = a.side === "buy" ? "buy" : "sell"
+          bValue = b.side === "buy" ? "buy" : "sell"
           break
-        case "entryPx":
-          aValue = parseFloat(a.position.entryPx)
-          bValue = parseFloat(b.position.entryPx)
+        case "size":
+          aValue = Math.abs(parseFloat(a.sz))
+          bValue = Math.abs(parseFloat(b.sz))
           break
-        case "positionValue":
-          aValue = parseFloat(a.position.positionValue)
-          bValue = parseFloat(b.position.positionValue)
+        case "price":
+          aValue = parseFloat(a.limitPx)
+          bValue = parseFloat(b.limitPx)
           break
-        case "unrealizedPnl":
-          aValue = parseFloat(a.position.unrealizedPnl)
-          bValue = parseFloat(b.position.unrealizedPnl)
+        case "orderValue":
+          aValue = Math.abs(parseFloat(a.sz) * parseFloat(a.limitPx))
+          bValue = Math.abs(parseFloat(b.sz) * parseFloat(b.limitPx))
           break
-        case "returnOnEquity":
-          aValue = parseFloat(a.position.returnOnEquity)
-          bValue = parseFloat(b.position.returnOnEquity)
+        case "orderId":
+          aValue = a.oid
+          bValue = b.oid
           break
-        case "marginUsed":
-          aValue = parseFloat(a.position.marginUsed)
-          bValue = parseFloat(b.position.marginUsed)
-          break
-        case "leverage":
-          aValue = a.position.leverage.value
-          bValue = b.position.leverage.value
+        case "timestamp":
+          aValue = a.timestamp || 0
+          bValue = b.timestamp || 0
           break
         default:
-          aValue = a.position.coin.toLowerCase()
-          bValue = b.position.coin.toLowerCase()
+          aValue = a.coin.toLowerCase()
+          bValue = b.coin.toLowerCase()
       }
 
       if (aValue < bValue) {
@@ -189,21 +167,21 @@ export function OpenPositionsTable({
     })
 
     return filtered
-  }, [positions, sortField, sortDirection, coinFilter, leverageTypeFilter])
+  }, [orders, sortField, sortDirection, coinFilter, sideFilter])
 
   const uniqueCoins = useMemo(() => {
-    return Array.from(new Set(positions.map((pos) => pos.position.coin))).sort()
-  }, [positions])
+    return Array.from(new Set(orders.map((order) => order.coin))).sort()
+  }, [orders])
 
   if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Open Positions</CardTitle>
+          <CardTitle>Open Orders</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-32">
-            <div className="text-gray-500">Loading positions...</div>
+            <div className="text-gray-500">Loading orders...</div>
           </div>
         </CardContent>
       </Card>
@@ -214,7 +192,7 @@ export function OpenPositionsTable({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Open Positions</CardTitle>
+          <CardTitle>Open Orders</CardTitle>
           <div className="flex items-center gap-2">
             {/* Coin Filter */}
             <DropdownMenu>
@@ -245,40 +223,36 @@ export function OpenPositionsTable({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Leverage Type Filter */}
+            {/* Side Filter */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Filter className="h-4 w-4 mr-2" />
-                  Leverage Type
+                  Side
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuCheckboxItem
-                  checked={leverageTypeFilter === ""}
-                  onCheckedChange={() => setLeverageTypeFilter("")}
+                  checked={sideFilter === ""}
+                  onCheckedChange={() => setSideFilter("")}
                 >
-                  All Types
+                  All Sides
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
-                  checked={leverageTypeFilter === "cross"}
+                  checked={sideFilter === "buy"}
                   onCheckedChange={() =>
-                    setLeverageTypeFilter(
-                      leverageTypeFilter === "cross" ? "" : "cross"
-                    )
+                    setSideFilter(sideFilter === "buy" ? "" : "buy")
                   }
                 >
-                  Cross
+                  Buy
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
-                  checked={leverageTypeFilter === "isolated"}
+                  checked={sideFilter === "sell"}
                   onCheckedChange={() =>
-                    setLeverageTypeFilter(
-                      leverageTypeFilter === "isolated" ? "" : "isolated"
-                    )
+                    setSideFilter(sideFilter === "sell" ? "" : "sell")
                   }
                 >
-                  Isolated
+                  Sell
                 </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -302,155 +276,121 @@ export function OpenPositionsTable({
                 <TableHead>
                   <Button
                     variant="ghost"
-                    onClick={() => handleSort("szi")}
+                    onClick={() => handleSort("side")}
                     className="h-auto p-0 font-semibold"
                   >
-                    Position {getSortIcon("szi")}
+                    Side {getSortIcon("side")}
                   </Button>
                 </TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
-                    onClick={() => handleSort("entryPx")}
+                    onClick={() => handleSort("size")}
                     className="h-auto p-0 font-semibold"
                   >
-                    Entry Price {getSortIcon("entryPx")}
+                    Size {getSortIcon("size")}
                   </Button>
                 </TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
-                    onClick={() => handleSort("positionValue")}
+                    onClick={() => handleSort("price")}
                     className="h-auto p-0 font-semibold"
                   >
-                    Position Value {getSortIcon("positionValue")}
+                    Price {getSortIcon("price")}
                   </Button>
                 </TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
-                    onClick={() => handleSort("unrealizedPnl")}
+                    onClick={() => handleSort("orderValue")}
                     className="h-auto p-0 font-semibold"
                   >
-                    Unrealized PnL {getSortIcon("unrealizedPnl")}
+                    Order Value {getSortIcon("orderValue")}
                   </Button>
                 </TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
-                    onClick={() => handleSort("returnOnEquity")}
+                    onClick={() => handleSort("orderId")}
                     className="h-auto p-0 font-semibold"
                   >
-                    ROE {getSortIcon("returnOnEquity")}
+                    Order ID {getSortIcon("orderId")}
                   </Button>
                 </TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
-                    onClick={() => handleSort("leverage")}
+                    onClick={() => handleSort("timestamp")}
                     className="h-auto p-0 font-semibold"
                   >
-                    Leverage {getSortIcon("leverage")}
+                    Time {getSortIcon("timestamp")}
                   </Button>
                 </TableHead>
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSort("marginUsed")}
-                    className="h-auto p-0 font-semibold"
-                  >
-                    Margin Used {getSortIcon("marginUsed")}
-                  </Button>
-                </TableHead>
-                <TableHead className="text-center">Liquidation</TableHead>
+                <TableHead className="text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAndSortedPositions.length === 0 ? (
+              {filteredAndSortedOrders.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={9}
+                    colSpan={8}
                     className="text-center text-gray-500 py-8"
                   >
-                    No open positions found
+                    No open orders found
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredAndSortedPositions.map((position, index) => (
-                  <TableRow key={`${position.position.coin}-${index}`}>
-                    <TableCell className="font-medium">
-                      {position.position.coin}
-                    </TableCell>
+                filteredAndSortedOrders.map((order, index) => (
+                  <TableRow key={`${order.coin}-${order.oid}-${index}`}>
+                    <TableCell className="font-medium">{order.coin}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {parseFloat(position.position.szi) > 0 ? (
+                        {order.side === "buy" ? (
                           <TrendingUp className="h-3 w-3 text-green-600" />
                         ) : (
                           <TrendingDown className="h-3 w-3 text-red-600" />
                         )}
-                        <span
-                          className={getPositionSideColor(
-                            position.position.szi
-                          )}
-                        >
-                          {getPositionSide(position.position.szi)}
-                        </span>
-                        <span className="font-mono text-sm">
-                          {formatNumber(
-                            Math.abs(
-                              parseFloat(position.position.szi)
-                            ).toString(),
-                            4
-                          )}
+                        <span className={getOrderSideColor(order.side)}>
+                          {getOrderSide(order.side)}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell className="font-mono">
-                      {formatCurrency(position.position.entryPx)}
+                      {formatNumber(
+                        Math.abs(parseFloat(order.sz)).toString(),
+                        4
+                      )}
                     </TableCell>
                     <TableCell className="font-mono">
-                      {formatCurrency(position.position.positionValue)}
+                      {formatCurrency(order.limitPx)}
                     </TableCell>
                     <TableCell className="font-mono">
-                      {formatPnl(position.position.unrealizedPnl)}
+                      {formatCurrency(
+                        (
+                          Math.abs(parseFloat(order.sz)) *
+                          parseFloat(order.limitPx)
+                        ).toString()
+                      )}
                     </TableCell>
-                    <TableCell className="font-mono">
-                      {formatReturnOnEquity(position.position.returnOnEquity)}
+                    <TableCell className="font-mono text-sm">
+                      {order.oid}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
-                          {position.position.leverage.type}
-                        </span>
-                        <span className="font-mono text-sm">
-                          {position.position.leverage.value}x
+                        <Clock className="h-3 w-3 text-gray-500" />
+                        <span className="text-sm text-gray-600">
+                          {order.timestamp
+                            ? formatTimestamp(order.timestamp)
+                            : "N/A"}
                         </span>
                       </div>
-                    </TableCell>
-                    <TableCell className="font-mono">
-                      {formatCurrency(position.position.marginUsed)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {position.position.liquidationPx ? (
-                        <span className="font-mono text-sm text-red-600">
-                          {formatCurrency(position.position.liquidationPx)}
-                        </span>
-                      ) : (
-                        <div className="flex items-center justify-center opacity-50">
-                          N/A
-                        </div>
-                      )}
                     </TableCell>
                     <TableCell className="text-center">
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() =>
-                          onClosePosition(
-                            position.position.coin,
-                            position.position.szi
-                          )
-                        }
+                        onClick={() => onCancelOrder(order.coin, order.oid)}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -462,8 +402,7 @@ export function OpenPositionsTable({
           </Table>
         </div>
         <div className="mt-4 text-sm text-gray-500">
-          Showing {filteredAndSortedPositions.length} of {positions.length}{" "}
-          positions
+          Showing {filteredAndSortedOrders.length} of {orders.length} orders
         </div>
       </CardContent>
     </Card>

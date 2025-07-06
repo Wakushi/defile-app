@@ -3,12 +3,13 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, Wallet, TrendingUp, Loader2, LogOut } from "lucide-react"
 import { useLogin, useLogout, usePrivy } from "@privy-io/react-auth"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useUser } from "@/stores/user.store"
 import { getChainName } from "@/lib/chains"
 
 export function Header() {
-  const { ready, authenticated, user } = usePrivy()
+  const { ready, authenticated } = usePrivy()
+  const pathname = usePathname()
 
   const {
     address,
@@ -48,12 +49,6 @@ export function Header() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
 
-  function debug() {
-    console.log("user: ", user)
-    console.log("address: ", address)
-    console.log("chainId: ", chainId)
-  }
-
   if (!ready) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -62,6 +57,8 @@ export function Header() {
     )
   }
 
+  const { totalMarginUsed, accountValue } = hyperliquidBalance
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b bg-white/50 backdrop-blur-sm dark:bg-gray-950">
       <nav>
@@ -69,9 +66,13 @@ export function Header() {
           <div className="flex items-center justify-between">
             <Link
               href="/"
-              className="text-xl font-bold text-gray-900 dark:text-white"
+              className={`text-xl font-bold ${
+                pathname === "/"
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-gray-900 dark:text-white"
+              }`}
             >
-              DeFile
+              HyPortal
             </Link>
 
             {!authenticated ? (
@@ -80,10 +81,28 @@ export function Header() {
               <>
                 <div className="flex items-center gap-4">
                   <Link href="/trading">
-                    <Button variant="outline">Trading</Button>
+                    <Button
+                      variant={pathname === "/trading" ? "default" : "outline"}
+                      className={
+                        pathname === "/trading"
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : ""
+                      }
+                    >
+                      Trading
+                    </Button>
                   </Link>
                   <Link href="/deposit">
-                    <Button variant="outline">Deposit</Button>
+                    <Button
+                      variant={pathname === "/deposit" ? "default" : "outline"}
+                      className={
+                        pathname === "/deposit"
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : ""
+                      }
+                    >
+                      Deposit
+                    </Button>
                   </Link>
 
                   <div className="flex items-center gap-3 ml-6 pl-6 border-l border-gray-200 dark:border-gray-700">
@@ -111,7 +130,12 @@ export function Header() {
                           Hyperliquid
                         </p>
                         <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          ${formatBalance(hyperliquidBalance)}
+                          $
+                          {formatBalance(
+                            (
+                              Number(accountValue) - Number(totalMarginUsed)
+                            ).toFixed(2)
+                          )}
                         </p>
                       </div>
                     </div>
@@ -139,7 +163,6 @@ export function Header() {
                   <Button onClick={() => logout()}>
                     <LogOut className="h-4 w-4" />
                   </Button>
-                  <Button onClick={() => debug()}>Debug</Button>
                 </div>
               </>
             )}

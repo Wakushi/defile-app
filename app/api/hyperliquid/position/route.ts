@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { asset, sizeUsd, side, price, user, testnet } = body
+    const { asset, sizeUsd, side, price, user, testnet, type } = body
 
     if (!asset || !sizeUsd || !side) {
       return NextResponse.json(
@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
       sizeUsd,
       side,
       price,
+      type
     })
 
     return NextResponse.json({
