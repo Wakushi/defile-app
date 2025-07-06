@@ -31,6 +31,9 @@ import { OpenPositionsTable } from "@/components/open-positions-table"
 import { toast } from "sonner"
 import { useUser } from "@/stores/user.store"
 import { useHyperliquid } from "@/hooks/use-hyperliquid"
+import { approveAgent } from "@/lib/hyperliquid-utils"
+import { SupportedChainId } from "@/lib/chains"
+import { PerpMetadata } from "@/types/hyperliquid.type"
 
 const tradeFormSchema = z.object({
   asset: z.string().min(1, "Asset is required"),
@@ -67,21 +70,37 @@ export default function TradingPage() {
     setIsSubmitting(true)
 
     try {
+      if (!address) {
+        throw new Error("Wallet not connected")
+      }
+
+      await approveAgent({
+        account: address,
+        chainId: SupportedChainId.ARBITRUM_SEPOLIA,
+        isMainnet: false,
+      })
+
       const response = await fetch("/api/hyperliquid/position", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          asset: data.asset,
+          sizeUsd: data.sizeUsd,
+          side: data.side,
+          user: address,
+          testnet: true,
+        }),
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to open position")
-      }
+      const { success, message } = await response.json()
 
-      const result = await response.json()
-      console.log("Position opened:", result)
-      toast.success("Position opened successfully")
+      if (success) {
+        toast.success(message)
+      } else {
+        toast.error(message)
+      }
     } catch (error) {
       console.error("Error opening position:", error)
       toast.error("Failed to open position")
@@ -92,6 +111,17 @@ export default function TradingPage() {
 
   function formatAssetName(asset: string): string {
     return asset.replace("PERP", "USD")
+  }
+
+  async function getAssetData(asset: string): Promise<{
+    marketPrice: number
+    perpMetadata: PerpMetadata
+    assetIndex: number
+  }> {
+    const response = await fetch(`/api/hyperliquid/assets/${asset}`)
+    const { data } = await response.json()
+
+    return data
   }
 
   return (

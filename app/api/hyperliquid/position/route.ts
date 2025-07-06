@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { asset, sizeUsd, side, price } = body
+    const { asset, sizeUsd, side, price, user, testnet } = body
 
     if (!asset || !sizeUsd || !side) {
       return NextResponse.json(
@@ -63,10 +63,13 @@ export async function POST(request: NextRequest) {
     }
 
     const hyperliquidService = HyperliquidService.getInstance({
-      privateKey: process.env.NEXT_PUBLIC_EVM_PRIVATE_KEY || "",
+      privateKey: process.env.PRIVATE_KEY || "",
     })
 
     const result = await hyperliquidService.openMarketPosition({
+      privateKey: process.env.PRIVATE_KEY || "",
+      account: user as `0x${string}`,
+      testnet,
       asset,
       sizeUsd,
       side,

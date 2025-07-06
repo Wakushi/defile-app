@@ -1,4 +1,10 @@
-import { createPublicClient, createWalletClient, custom, http } from "viem"
+import {
+  Address,
+  createPublicClient,
+  createWalletClient,
+  custom,
+  http,
+} from "viem"
 import { SupportedChainId } from "./chains"
 import {
   sepolia,
@@ -40,5 +46,19 @@ export const getWalletClient = (chainId: SupportedChainId) => {
     chain: chains[chainId as keyof typeof chains],
     // @ts-ignore
     transport: custom(window.ethereum),
+  })
+}
+
+export const getWalletClientAccount = (
+  chainId: SupportedChainId,
+  account: Address
+) => {
+  if (!window.ethereum) throw new Error("Metamask non détecté")
+
+  return createWalletClient({
+    chain: chains[chainId as keyof typeof chains],
+    // @ts-ignore
+    transport: custom(window.ethereum),
+    account,
   })
 }

@@ -1,6 +1,7 @@
 import type { Hex } from "viem"
 
 export enum SupportedChainId {
+  ARBITRUM = 42161,
   ETH_SEPOLIA = 11155111,
   AVAX_FUJI = 43113,
   BASE_SEPOLIA = 84532,
@@ -18,6 +19,7 @@ export const DEFAULT_MAX_FEE = 1000n
 export const DEFAULT_FINALITY_THRESHOLD = 2000
 
 export const CHAIN_TO_CHAIN_NAME: Record<number, string> = {
+  [SupportedChainId.ARBITRUM]: "Arbitrum",
   [SupportedChainId.ETH_SEPOLIA]: "Ethereum Sepolia",
   [SupportedChainId.AVAX_FUJI]: "Avalanche Fuji",
   [SupportedChainId.BASE_SEPOLIA]: "Base Sepolia",

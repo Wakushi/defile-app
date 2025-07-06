@@ -32,7 +32,7 @@ export function useHyperliquid(user: Address | undefined) {
   const fetchOpenPositions = async () => {
     setIsLoadingOpenPositions(true)
     try {
-      const response = await fetch(HYPERLIQUID_TESTNET_API_URL, {
+      const response = await fetch(`${HYPERLIQUID_TESTNET_API_URL}/info`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

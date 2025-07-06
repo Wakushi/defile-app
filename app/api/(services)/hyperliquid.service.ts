@@ -59,16 +59,29 @@ export class HyperliquidService {
   }
 
   async openMarketPosition({
+    account,
+    testnet,
+    privateKey,
     asset,
     sizeUsd,
     side,
     price,
   }: {
+    account: Address
+    testnet: boolean
+    privateKey: string
     asset: string
     sizeUsd: number
     side: "buy" | "sell"
     price?: number
   }) {
+    const hyperliquid = new Hyperliquid({
+      testnet,
+      privateKey,
+      walletAddress: account,
+      enableWs: false,
+    })
+
     const marketPrice = await this.getAssetPrice(asset)
     const perpMetadata = await this.getAssetMetadata(asset)
 
@@ -81,7 +94,7 @@ export class HyperliquidService {
     const size = (sizeUsd / rawPrice).toFixed(szDecimals)
 
     const response: OpenMarketPositionResponse =
-      await this.hyperliquid.exchange.placeOrder({
+      await hyperliquid.exchange.placeOrder({
         coin: asset,
         is_buy: side === "buy",
         sz: size,
