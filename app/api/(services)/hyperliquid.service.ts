@@ -107,6 +107,8 @@ export class HyperliquidService {
 
     const status = response.response.data.statuses[0]
 
+    console.log(`Open trade: ${JSON.stringify(status)}`)
+
     if (response.status !== "ok" || status.error) {
       throw new Error(status.error)
     }

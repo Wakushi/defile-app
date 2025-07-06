@@ -25,6 +25,7 @@ interface UserState {
   isLoadingBalance: boolean
   isLoadingHyperliquid: boolean
   refreshAllBalances: (chainId: SupportedChainId) => Promise<void>
+  reset: () => void
 }
 
 interface MarginSummary {
@@ -103,6 +104,9 @@ export function UserStoreProvider({ children }: UserStoreProviderProps) {
       })
 
       const data: HyperliquidMarginInfo = await response.json()
+
+      if (!data) return
+
       setHyperliquidBalance(data.marginSummary)
     } catch (error) {
       console.error("Failed to get Hyperliquid balance:", error)
@@ -149,6 +153,18 @@ export function UserStoreProvider({ children }: UserStoreProviderProps) {
     return formattedBalance
   }
 
+  const reset = () => {
+    setAccount(undefined)
+    setSourceChain(undefined)
+    setBalance("0")
+    setHyperliquidBalance({
+      accountValue: "0",
+      totalNtlPos: "0",
+      totalRawUsd: "0",
+      totalMarginUsed: "0",
+    })
+  }
+
   const userState: UserState = {
     address: account,
     chainId: sourceChain,
@@ -157,6 +173,7 @@ export function UserStoreProvider({ children }: UserStoreProviderProps) {
     isLoadingBalance,
     isLoadingHyperliquid,
     refreshAllBalances,
+    reset,
   }
 
   return (

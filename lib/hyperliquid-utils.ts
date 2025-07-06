@@ -7,13 +7,17 @@ import {
 import { getWalletClient } from "./chain-utils"
 import { splitSig } from "./signing-utils"
 
+import { switchChain } from "viem/actions"
+
 export async function approveAgent({
   account,
+  prevChainId,
   chainId,
   isMainnet,
   agentName = "Bob",
 }: {
   account: Address
+  prevChainId: SupportedChainId
   chainId: SupportedChainId
   isMainnet: boolean
   agentName?: string
@@ -47,6 +51,12 @@ export async function approveAgent({
   }
 
   const walletClient = getWalletClient(chainId)
+
+  if (prevChainId !== chainId) {
+    await switchChain(walletClient, {
+      id: chainId,
+    })
+  }
 
   const rawSig = await walletClient.signTypedData({
     account,
@@ -91,6 +101,12 @@ export async function approveAgent({
     }
 
     throw new Error(`Agent approval failed: ${errorMessage}`)
+  }
+
+  if (prevChainId !== chainId) {
+    await switchChain(walletClient, {
+      id: prevChainId,
+    })
   }
 
   return result

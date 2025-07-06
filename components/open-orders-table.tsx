@@ -26,6 +26,7 @@ import {
   TrendingDown,
   X,
   Clock,
+  RefreshCw,
 } from "lucide-react"
 import { UserOpenOrder } from "hyperliquid"
 
@@ -33,6 +34,7 @@ interface OpenOrdersTableProps {
   orders: UserOpenOrder[]
   isLoading?: boolean
   onCancelOrder: (coin: string, orderId: number) => void
+  refreshAll: () => void
 }
 
 type SortField =
@@ -49,6 +51,7 @@ export function OpenOrdersTable({
   orders,
   isLoading = false,
   onCancelOrder,
+  refreshAll,
 }: OpenOrdersTableProps) {
   const [sortField, setSortField] = useState<SortField>("coin")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
@@ -170,6 +173,7 @@ export function OpenOrdersTable({
   }, [orders, sortField, sortDirection, coinFilter, sideFilter])
 
   const uniqueCoins = useMemo(() => {
+    if (!orders) return []
     return Array.from(new Set(orders.map((order) => order.coin))).sort()
   }, [orders])
 
@@ -194,6 +198,19 @@ export function OpenOrdersTable({
         <div className="flex items-center justify-between">
           <CardTitle>Open Orders</CardTitle>
           <div className="flex items-center gap-2">
+            {/* Refresh */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => refreshAll()}
+              className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              <RefreshCw
+                className={`h-4 w-4 text-gray-600 dark:text-gray-400 ${
+                  isLoading ? "animate-spin" : ""
+                }`}
+              />
+            </Button>
             {/* Coin Filter */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -401,9 +418,11 @@ export function OpenOrdersTable({
             </TableBody>
           </Table>
         </div>
-        <div className="mt-4 text-sm text-gray-500">
-          Showing {filteredAndSortedOrders.length} of {orders.length} orders
-        </div>
+        {orders?.length > 0 && (
+          <div className="mt-4 text-sm text-gray-500">
+            Showing {filteredAndSortedOrders.length} of {orders.length} orders
+          </div>
+        )}
       </CardContent>
     </Card>
   )

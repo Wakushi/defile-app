@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       sizeUsd,
       side,
       price,
-      type
+      type,
     })
 
     return NextResponse.json({
@@ -83,8 +83,6 @@ export async function POST(request: NextRequest) {
       message: `Successfully opened ${side} position for ${asset} with size ${sizeUsd}`,
     })
   } catch (error) {
-    console.error("Error opening market position:", error)
-
     if (error instanceof Error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }

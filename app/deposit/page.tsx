@@ -160,7 +160,7 @@ export default function FundPage() {
         const usdc2Balance = await getERC20Balance(usdcAddress)
 
         if (+usdc2Balance < 10) {
-          await fundTesterUSDC2()
+          await fundTesterUSDC2(amount.toString())
         }
       }
 
@@ -220,7 +220,7 @@ export default function FundPage() {
     return formattedBalance
   }
 
-  async function fundTesterUSDC2() {
+  async function fundTesterUSDC2(amount: string) {
     const privateKey = process.env.NEXT_PUBLIC_EVM_PRIVATE_KEY
 
     if (!privateKey) {
@@ -241,7 +241,7 @@ export default function FundPage() {
         transport: http(),
       })
 
-      const TEN_USDC2 = parseUnits("10", DEFAULT_USDC_DECIMALS)
+      const TEN_USDC2 = parseUnits(amount, DEFAULT_USDC_DECIMALS)
 
       const { request } = await publicClient.simulateContract({
         account,

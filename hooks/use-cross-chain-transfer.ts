@@ -8,7 +8,6 @@ import {
   TransactionExecutionError,
   parseUnits,
   createPublicClient,
-  formatUnits,
   parseEther,
   Address,
   custom,

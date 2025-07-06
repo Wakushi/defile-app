@@ -84,6 +84,7 @@ export default function TradingPage() {
 
       await approveAgent({
         account: address,
+        prevChainId: chainId as SupportedChainId,
         chainId: SupportedChainId.ARBITRUM_SEPOLIA,
         isMainnet: false,
       })
@@ -121,8 +122,9 @@ export default function TradingPage() {
       await refreshAll()
       await refreshAllBalances(chainId as SupportedChainId)
     } catch (error) {
-      console.error("Error opening position:", error)
-      toast.error(typeof error === "string" ? error : "Failed to open position")
+      toast.error(
+        error instanceof Error ? error.message : "Failed to open position"
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -179,21 +181,13 @@ export default function TradingPage() {
 
   return (
     <div className="container mx-auto py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Perpetual Trading
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Open leveraged positions on Hyperliquid using liquidity from any chain
-        </p>
-      </div>
-
       <div className="flex gap-4">
         <div className="w-[80%] flex flex-col gap-4">
           <OpenPositionsTable
             positions={openPositions}
             isLoading={isLoadingOpenPositions}
             onClosePosition={onClosePosition}
+            refreshAll={refreshAll}
           />
           <OpenOrdersTable
             orders={orders}
@@ -201,6 +195,7 @@ export default function TradingPage() {
             onCancelOrder={() => {
               console.log("cancel order")
             }}
+            refreshAll={refreshAll}
           />
         </div>
         <div className="w-[20%]">

@@ -46,6 +46,9 @@ export function useHyperliquid(user: Address | undefined) {
       })
 
       const data: HyperliquidMarginInfo = await response.json()
+
+      if (!data) return
+
       setOpenPositions(data.assetPositions)
     } catch (error) {
       console.error("Failed to get asset positions:", error)

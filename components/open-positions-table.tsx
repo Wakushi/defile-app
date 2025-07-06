@@ -25,6 +25,7 @@ import {
   TrendingUp,
   TrendingDown,
   X,
+  RefreshCw,
 } from "lucide-react"
 import { AssetPosition } from "@/types/hyperliquid.type"
 
@@ -32,6 +33,7 @@ interface OpenPositionsTableProps {
   positions: AssetPosition[]
   isLoading?: boolean
   onClosePosition: (coin: string, szi: string) => void
+  refreshAll: () => void
 }
 
 type SortField =
@@ -49,6 +51,7 @@ export function OpenPositionsTable({
   positions,
   isLoading = false,
   onClosePosition,
+  refreshAll,
 }: OpenPositionsTableProps) {
   const [sortField, setSortField] = useState<SortField>("coin")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
@@ -216,6 +219,19 @@ export function OpenPositionsTable({
         <div className="flex items-center justify-between">
           <CardTitle>Open Positions</CardTitle>
           <div className="flex items-center gap-2">
+            {/* Refresh */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => refreshAll()}
+              className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              <RefreshCw
+                className={`h-4 w-4 text-gray-600 dark:text-gray-400 ${
+                  isLoading ? "animate-spin" : ""
+                }`}
+              />
+            </Button>
             {/* Coin Filter */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -1,7 +1,15 @@
 "use client"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Wallet, TrendingUp, Loader2, LogOut } from "lucide-react"
+import {
+  RefreshCw,
+  Wallet,
+  TrendingUp,
+  LogOut,
+  LogIn,
+  GalleryHorizontalEnd,
+} from "lucide-react"
 import { useLogin, useLogout, usePrivy } from "@privy-io/react-auth"
 import { useRouter, usePathname } from "next/navigation"
 import { useUser } from "@/stores/user.store"
@@ -10,6 +18,7 @@ import { getChainName } from "@/lib/chains"
 export function Header() {
   const { ready, authenticated } = usePrivy()
   const pathname = usePathname()
+  const router = useRouter()
 
   const {
     address,
@@ -19,18 +28,16 @@ export function Header() {
     isLoadingHyperliquid,
     refreshAllBalances,
     chainId,
+    reset,
   } = useUser()
 
-  const router = useRouter()
-
   const { login } = useLogin({
-    onComplete: () => {
-      router.push("/trading")
-    },
+    onComplete: () => router.push("/trading"),
   })
 
   const { logout } = useLogout({
     onSuccess: () => {
+      reset()
       router.push("/")
     },
   })
@@ -52,7 +59,7 @@ export function Header() {
   if (!ready) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <Loader2 className="w-6 h-6 animate-spin" />
+        <RefreshCw className="w-6 h-6 animate-spin" />
       </div>
     )
   }
@@ -66,105 +73,115 @@ export function Header() {
           <div className="flex items-center justify-between">
             <Link
               href="/"
-              className={`text-xl font-bold ${
+              className={`flex items-center gap-2 text-xl font-bold ${
                 pathname === "/"
-                  ? "text-blue-600 dark:text-blue-400"
+                  ? "text-indigo-600 dark:text-indigo-400"
                   : "text-gray-900 dark:text-white"
               }`}
             >
+              <GalleryHorizontalEnd className="w-5 h-5" />
               HyPortal
             </Link>
 
             {!authenticated ? (
-              <Button onClick={() => login()}>Login</Button>
+              <Button onClick={() => login()}>
+                <LogIn className="w-4 h-4 mr-2" />
+                Login
+              </Button>
             ) : (
-              <>
-                <div className="flex items-center gap-4">
-                  <Link href="/trading">
-                    <Button
-                      variant={pathname === "/trading" ? "default" : "outline"}
-                      className={
-                        pathname === "/trading"
-                          ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : ""
-                      }
-                    >
-                      Trading
-                    </Button>
-                  </Link>
-                  <Link href="/deposit">
-                    <Button
-                      variant={pathname === "/deposit" ? "default" : "outline"}
-                      className={
-                        pathname === "/deposit"
-                          ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : ""
-                      }
-                    >
-                      Deposit
-                    </Button>
-                  </Link>
+              <div className="flex items-center gap-4">
+                <Link href="/trading">
+                  <Button
+                    variant={pathname === "/trading" ? "default" : "outline"}
+                    className={
+                      pathname === "/trading"
+                        ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                        : ""
+                    }
+                  >
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    Trading
+                  </Button>
+                </Link>
 
-                  <div className="flex items-center gap-3 ml-6 pl-6 border-l border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-md">
-                        <Wallet className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {chainId ? getChainName(chainId) : "Unknown Chain"}
-                        </p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          ${formatBalance(balance)}
-                        </p>
-                      </div>
+                <Link href="/deposit">
+                  <Button
+                    variant={pathname === "/deposit" ? "default" : "outline"}
+                    className={
+                      pathname === "/deposit"
+                        ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                        : ""
+                    }
+                  >
+                    <Wallet className="w-4 h-4 mr-2" />
+                    Deposit
+                  </Button>
+                </Link>
+
+                <div className="flex items-center gap-3 ml-6 pl-6 border-l border-gray-200 dark:border-gray-700">
+                  {/* Wallet balance */}
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-md">
+                      <Wallet className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                     </div>
-
-                    {/* Hyperliquid Balance */}
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md">
-                        <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Hyperliquid
-                        </p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          $
-                          {formatBalance(
-                            (
-                              Number(accountValue) - Number(totalMarginUsed)
-                            ).toFixed(2)
-                          )}
-                        </p>
-                      </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {chainId ? getChainName(chainId) : "Unknown Chain"}
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        ${formatBalance(balance)}
+                      </p>
                     </div>
-
-                    {/* Refresh Button */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => refreshAllBalances(chainId as number)}
-                      disabled={isLoadingBalance || isLoadingHyperliquid}
-                      className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
-                    >
-                      <RefreshCw
-                        className={`h-4 w-4 text-gray-600 dark:text-gray-400 ${
-                          isLoadingBalance || isLoadingHyperliquid
-                            ? "animate-spin"
-                            : ""
-                        }`}
-                      />
-                    </Button>
                   </div>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {formatAddress(address)}
-                  </span>
-                  <Button onClick={() => logout()}>
-                    <LogOut className="h-4 w-4" />
+
+                  {/* HL balance */}
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md">
+                      <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Hyperliquid
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        $
+                        {formatBalance(
+                          (
+                            Number(accountValue) - Number(totalMarginUsed)
+                          ).toFixed(2)
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Refresh */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => refreshAllBalances(chainId as number)}
+                    disabled={isLoadingBalance || isLoadingHyperliquid}
+                    className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 text-gray-600 dark:text-gray-400 ${
+                        isLoadingBalance || isLoadingHyperliquid
+                          ? "animate-spin"
+                          : ""
+                      }`}
+                    />
                   </Button>
                 </div>
-              </>
+
+                {/* Address */}
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {formatAddress(address)}
+                </span>
+
+                {/* Logout */}
+                <Button onClick={() => logout()} variant="outline">
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
             )}
           </div>
         </div>
